@@ -31,9 +31,8 @@ ITS ResFix is a maintenance reporting and tracking platform for student accommod
 
 ## Repository Structure
 
-- `/Phase 1` – Phase 1 documents (SRS, Feasibility, Risk Register)
-- `/Phase 2` – Phase 2 documents (Updated SRS, Design Diagrams, Prototypes)
-- `/Project_Management` – MS Project file and Progress Tracker
+- `/Phase 1` – Phase 1 documents (SRS, Feasibility, Risk Register, MS Project file and Progress Tracker)
+- `/Phase 2` – Phase 2 documents (Updated SRS, Design Diagrams, Prototypes, MS Project file and Progress Tracker)
 - `/Source_Code` – Placeholder for Phase 3 development
 
 ---
