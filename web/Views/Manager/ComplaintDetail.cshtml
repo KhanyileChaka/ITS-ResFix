@@ -1,0 +1,182 @@
+@model ComplaintRow
+@{
+    var c = Model.Complaint;
+    var code = DisplayHelper.JobCode(c.ComplaintId);
+    ViewData["Title"] = $"Complaint #{code}";
+    ViewData["CustomHeader"] = true;
+    var percent = TimerHelper.PercentRemaining(c.AssignedAt, c.Deadline);
+    var isResolved = c.StatusId == StatusIds.Resolved;
+}
+
+<div class="page-header">
+    <h1 class="page-title mb-0">Complaint #@code</h1>
+    <span class="rf-badge @(Model.IsEmergency ? "priority-emergency" : "priority-normal") ms-2">
+        Priority: @c.Priority
+    </span>
+    <a asp-action="Complaints" class="btn btn-outline-secondary btn-sm ms-auto">Back to List</a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="rf-card rf-card-padded mb-3">
+            <h2 class="card-heading">Complaint Information</h2>
+            <dl class="info-list">
+                <dt>Student</dt><dd>@Model.StudentName</dd>
+                <dt>Room</dt><dd>@c.RoomNumber</dd>
+                <dt>Category</dt><dd>@Model.CategoryName</dd>
+                @if (Model.OriginalCategoryName is not null)
+                {
+                    <dt>Student picked</dt><dd>@Model.OriginalCategoryName <span class="text-muted small">(corrected by AI)</span></dd>
+                }
+                <dt>Submitted</dt><dd>@(((DateTime?)c.CreatedAt).ToSaTime("dd MMM yyyy"))</dd>
+                <dt>Emergency</dt><dd>@(Model.IsEmergency ? "Yes" : "No")</dd>
+            </dl>
+        </div>
+
+        <div class="rf-card rf-card-padded mb-3">
+            <h2 class="card-heading">Description &amp; Attachment</h2>
+            <p class="description-text">@c.Description</p>
+            @if (DisplayHelper.IsHttpsUrl(c.PhotoUrl))
+            {
+                <a href="@c.PhotoUrl" target="_blank" rel="noopener">
+                    <img src="@c.PhotoUrl" alt="Complaint photo" class="complaint-photo" />
+                </a>
+            }
+            else
+            {
+                <div class="photo-placeholder"><i class="bi bi-image"></i> No photo attached.</div>
+                @if (!string.IsNullOrWhiteSpace(c.PhotoNote))
+                {
+                    <div class="ai-note ai-note-rejected mt-2"><strong>Photo removed by AI review</strong><div class="mt-1">@c.PhotoNote</div></div>
+                }
+            }
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="rf-card rf-card-padded mb-3">
+            <h2 class="card-heading">Status</h2>
+            <span class="rf-badge @DisplayHelper.StatusCss(c.StatusId) mb-3 d-inline-block">@Model.StatusName</span>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(c.AiNote) || Model.IsRejected)
+        {
+            <div class="rf-card rf-card-padded mb-3">
+                <h2 class="card-heading">AI Review</h2>
+                <div class="ai-note @(Model.IsRejected ? "ai-note-rejected" : "")">
+                    <strong>@(Model.IsRejected ? "Rejected: not a maintenance issue" : "Accepted")</strong>
+                    @if (!string.IsNullOrWhiteSpace(c.AiNote))
+                    {
+                        <div class="mt-1">@c.AiNote</div>
+                    }
+                </div>
+                @if (Model.IsRejected)
+                {
+                    <form asp-action="AcceptRejected" asp-route-id="@c.ComplaintId" method="post" class="mt-3"
+                          data-confirm="Accept this complaint anyway? It will be assigned and the student will be notified.">
+                        <button type="submit" class="btn btn-rf-primary w-100">Accept anyway</button>
+                        <div class="small text-muted mt-1">Use this if the AI was wrong. The complaint goes back into the normal queue.</div>
+                    </form>
+                }
+            </div>
+        }
+        else if (!c.AiChecked)
+        {
+            <div class="rf-card rf-card-padded mb-3">
+                <h2 class="card-heading">AI Review</h2>
+                <p class="small text-muted mb-0">Waiting for the AI review.</p>
+            </div>
+        }
+
+        @if (c.AppealStatus is not null)
+        {
+            <div class="rf-card rf-card-padded mb-3">
+                <h2 class="card-heading"><i class="bi bi-flag me-2"></i>Student appeal
+                    <span class="rf-pill rf-pill-appeal">@c.AppealStatus.ToUpperInvariant()</span></h2>
+                <div class="appeal-card mb-3">
+                    <strong>Student's reason</strong>
+                    <div class="mt-1">@c.AppealReason</div>
+                    <div class="small text-muted mt-1">Sent @c.AppealedAt.ToSaTime("dd MMM yyyy HH:mm")</div>
+                </div>
+                @if (c.AppealStatus == AppealStatuses.Pending)
+                {
+                    <form asp-action="DecideAppeal" asp-route-id="@c.ComplaintId" method="post">
+                        <textarea name="response" rows="2" maxlength="500" class="form-control mb-2" placeholder="Optional note to the student"></textarea>
+                        <button type="submit" name="approve" value="true" class="btn btn-rf-primary btn-sm me-2"
+                                data-confirm="Approve this appeal? The request goes back into the queue and is assigned.">Approve and accept request</button>
+                        <button type="submit" name="approve" value="false" class="btn btn-outline-secondary btn-sm"
+                                data-confirm="Decline this appeal?">Decline</button>
+                    </form>
+                }
+                else if (!string.IsNullOrWhiteSpace(c.AppealResponse))
+                {
+                    <div class="small"><strong>Your response:</strong> @c.AppealResponse</div>
+                }
+            </div>
+        }
+
+        @{
+            var convo = new ConversationViewModel
+            {
+                ComplaintId = c.ComplaintId,
+                Controller = "Manager",
+                CanReply = !Model.IsRejected,
+                Messages = ViewBag.Messages as List<ITSResFix.Staff.Models.Db.ComplaintMessage> ?? new()
+            };
+        }
+        <partial name="_Conversation" model="convo" />
+
+        @if (!Model.IsRejected)
+        {
+        <div class="rf-card rf-card-padded mb-3">
+            <h2 class="card-heading">Assignment Details</h2>
+            <p class="small text-muted mb-3">
+                Automatically assigned using category rules. Reassignment is available to the manager after the 48-hour timer expires.
+            </p>
+            <dl class="info-list mb-3">
+                <dt>Auto-Assigned To</dt><dd>@(Model.WorkerName ?? "Unassigned")</dd>
+                <dt>Method</dt><dd>@(c.AssignedType == "manual" ? "Manual" : "Auto")</dd>
+            </dl>
+
+            @if (c.Deadline is not null)
+            {
+                <div class="timer-box @(isResolved ? "timer-box-done" : Model.Timer.IsExpired ? "timer-box-expired" : "timer-box-active")"
+                     data-countdown-box
+                     data-deadline="@(isResolved ? "" : c.Deadline.ToIsoUtc())"
+                     data-assigned="@c.AssignedAt.ToIsoUtc()">
+                    @if (isResolved)
+                    {
+                        <div class="timer-box-title"><i class="bi bi-check-circle-fill"></i> COMPLETED</div>
+                    }
+                    else
+                    {
+                        <div class="timer-box-title"><i class="bi bi-stopwatch"></i> <span data-remaining>@TimerHelper.RemainingText(c.Deadline)</span> remaining</div>
+                        <div class="progress timer-progress" role="progressbar"
+                             aria-valuenow="@percent" aria-valuemin="0" aria-valuemax="100">
+                            <div class="progress-bar" style="width:@percent%" data-progress></div>
+                        </div>
+                        <div class="timer-box-meta">
+                            <span><span data-percent>@percent</span>% of time remaining</span>
+                            <span class="timer-box-state"><span data-state>@(Model.Timer.IsExpired ? "EXPIRED" : "ACTIVE")</span></span>
+                        </div>
+                    }
+                </div>
+
+                <dl class="info-list mt-3">
+                    <dt>Assigned</dt><dd>@c.AssignedAt.ToSaTime("dd MMM HH:mm")</dd>
+                    <dt>Deadline</dt><dd>@c.Deadline.ToSaTime("dd MMM HH:mm")</dd>
+                    <dt>Planned visit</dt><dd>@(c.ScheduledVisitAt is null ? "Not planned yet" : c.ScheduledVisitAt.ToSaTime("ddd d MMM, HH:mm"))</dd>
+                    <dt>Status</dt><dd>@(isResolved ? "Completed" : Model.Timer.IsExpired ? "EXPIRED" : "Active")</dd>
+                </dl>
+            }
+        </div>
+        }
+
+        @if (Model.Timer.IsExpired)
+        {
+            <a asp-action="Reassign" asp-route-id="@c.ComplaintId" class="btn btn-rf-primary w-100">
+                Reassign Complaint
+            </a>
+        }
+    </div>
+</div>

@@ -1,0 +1,60 @@
+@model LoginViewModel
+@{
+    ViewData["Title"] = "Sign in";
+    Layout = "_AuthLayout";
+    var formErrors = ViewData.ModelState[string.Empty]?.Errors;
+    var fieldError = ViewData.ModelState.Where(kv => kv.Key != string.Empty).SelectMany(kv => kv.Value!.Errors).FirstOrDefault();
+}
+<div class="auth-brand auth-brand-compact">
+    <img src="~/images/logo.jpg" alt="ITS ResFix" class="auth-logo-img" />
+    <h1>ITS ResFix</h1>
+    <p>Staff portal</p>
+</div>
+
+<div class="auth-heading">
+    <h1>Welcome back</h1>
+    <p>Sign in with your staff account. Managers and workers use the same page.</p>
+</div>
+
+@if (TempData["Success"] is string loginNotice)
+{
+    <div class="auth-alert auth-alert-ok" role="status"><i class="bi bi-check-circle-fill"></i><span>@loginNotice</span></div>
+}
+
+@if (formErrors?.Count > 0)
+{
+    <div class="auth-alert auth-alert-bad" role="alert"><i class="bi bi-exclamation-circle-fill"></i><span>@formErrors[0].ErrorMessage</span></div>
+}
+else if (fieldError is not null)
+{
+    <div class="auth-alert auth-alert-bad" role="alert"><i class="bi bi-exclamation-circle-fill"></i><span>@fieldError.ErrorMessage</span></div>
+}
+
+<form asp-controller="Account" asp-action="Login" method="post" novalidate class="auth-form">
+    <input type="hidden" asp-for="ReturnUrl" />
+
+    <div class="auth-field">
+        <label asp-for="Email">Email address</label>
+        <div class="auth-input">
+            <i class="bi bi-envelope"></i>
+            <input asp-for="Email" id="emailInput" placeholder="name@example.com" autocomplete="username" autofocus inputmode="email" />
+        </div>
+    </div>
+
+    <div class="auth-field">
+        <div class="auth-field-row">
+            <label asp-for="Password">Password</label>
+            <a asp-action="ForgotPassword" class="auth-link">Forgot password?</a>
+        </div>
+        <div class="auth-input">
+            <i class="bi bi-lock"></i>
+            <input asp-for="Password" placeholder="Enter your password" autocomplete="current-password" />
+            <button type="button" class="auth-eye" data-toggle-password="#Password" aria-label="Show or hide password"><i class="bi bi-eye"></i></button>
+        </div>
+    </div>
+
+    <button type="submit" class="auth-submit">Sign in <i class="bi bi-arrow-right"></i></button>
+</form>
+
+<p class="auth-note"><i class="bi bi-shield-lock"></i> Authorised personnel only. Your activity on this portal is logged.</p>
+<p class="auth-note" style="margin-top:8px"><a asp-action="Privacy" class="auth-link">Privacy policy</a></p>

@@ -1,0 +1,186 @@
+@model WorkerJobsViewModel
+@{
+    ViewData["Title"] = "Worker Dashboard";
+    var fullName = User.Identity?.Name ?? "there";
+    var firstName = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? fullName;
+
+    DateTime sa;
+    try { sa = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("South Africa Standard Time")); }
+    catch { sa = DateTime.UtcNow.AddHours(2); }
+    var greeting = sa.Hour < 12 ? "Good morning" : sa.Hour < 18 ? "Good afternoon" : "Good evening";
+
+    var open = Model.Jobs
+        .Where(j => j.Complaint.StatusId != StatusIds.Resolved)
+        .OrderByDescending(j => j.IsEmergency || j.Timer.IsExpired)
+        .ThenBy(j => j.Complaint.Deadline ?? DateTime.MaxValue)
+        .ToList();
+    var next = open.FirstOrDefault();
+    var needsReply = open.Count(j => j.AwaitingReply);
+    var resolvedJobs = Model.Jobs.Where(j => j.Complaint.StatusId == StatusIds.Resolved && j.Complaint.ResolvedAt is not null).ToList();
+    var onTime = DisplayHelper.OnTimeRate(Model.Jobs.Select(j => j.Complaint));
+    double? avgHours = resolvedJobs.Count == 0 || resolvedJobs.Any(j => j.Complaint.AssignedAt is null) ? null
+        : resolvedJobs.Average(j => (j.Complaint.ResolvedAt!.Value.AsUtc() - j.Complaint.AssignedAt!.Value.AsUtc()).TotalHours);
+    var days = Enumerable.Range(0, 7).Select(i => sa.Date.AddDays(i - 6)).ToList();
+    var perDay = days.Select(d => resolvedJobs.Count(j =>
+        TimeZoneInfo.ConvertTimeFromUtc(j.Complaint.ResolvedAt!.Value.AsUtc(), DisplayHelper.SaZone).Date == d)).ToList();
+    var peak = Math.Max(1, perDay.Max());
+    var summary = open.Count == 0
+        ? "You are all caught up. New jobs show up here as soon as they are assigned."
+        : $"You have {open.Count} open {(open.Count == 1 ? "job" : "jobs")}" + (Model.Urgent > 0 ? $", {Model.Urgent} urgent." : ".");
+}
+
+<section class="wd-hero">
+    <div class="wd-hero-text">
+        <div class="wd-date">@sa.ToString("dddd, d MMMM")</div>
+        <h1>@greeting, @firstName</h1>
+        <p>@summary</p>
+        <div class="wd-hero-actions">
+            <a asp-action="Jobs" class="btn wd-btn-light"><i class="bi bi-list-task"></i> All jobs</a>
+            <a asp-action="History" class="btn wd-btn-ghost"><i class="bi bi-clock-history"></i> History</a>
+        </div>
+    </div>
+
+    @if (next is not null)
+    {
+        var nc = next.Complaint;
+        <a asp-action="Job" asp-route-id="@nc.ComplaintId" class="wd-next">
+            <div class="wd-next-label"><i class="bi bi-lightning-charge-fill"></i> Up next</div>
+            <div class="wd-next-title">@next.CategoryName <span>@DisplayHelper.JobCode(nc.ComplaintId)</span></div>
+            <div class="wd-next-meta"><i class="bi bi-door-open"></i> Room @nc.RoomNumber</div>
+            <div class="wd-next-foot">
+                <partial name="_TimerBadge" model="next" />
+                <span class="wd-next-go">Open job <i class="bi bi-arrow-right"></i></span>
+            </div>
+        </a>
+    }
+</section>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-xl-3"><div class="wd-stat wd-blue"><span class="wd-stat-icon"><i class="bi bi-inbox"></i></span><div><div class="wd-stat-value">@Model.NewJobs</div><div class="wd-stat-label">New jobs</div></div></div></div>
+    <div class="col-6 col-xl-3"><div class="wd-stat wd-amber"><span class="wd-stat-icon"><i class="bi bi-tools"></i></span><div><div class="wd-stat-value">@Model.InProgress</div><div class="wd-stat-label">In progress</div></div></div></div>
+    <div class="col-6 col-xl-3"><div class="wd-stat wd-green"><span class="wd-stat-icon"><i class="bi bi-check2-circle"></i></span><div><div class="wd-stat-value">@Model.CompletedToday</div><div class="wd-stat-label">Done today</div></div></div></div>
+    <div class="col-6 col-xl-3"><div class="wd-stat wd-red"><span class="wd-stat-icon"><i class="bi bi-exclamation-triangle"></i></span><div><div class="wd-stat-value">@Model.Urgent</div><div class="wd-stat-label">Urgent</div></div></div></div>
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-8">
+        <div class="wd-section-head">
+            <h2>Your open jobs</h2>
+            <a asp-action="Jobs">See all</a>
+        </div>
+
+        @if (open.Count == 0)
+        {
+            <div class="rf-card">
+                <div class="empty-state">
+                    <i class="bi bi-cup-hot"></i>
+                    <p>No open jobs right now. Enjoy the quiet.</p>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="wd-jobs">
+                @foreach (var row in open.Take(6))
+                {
+                    var c = row.Complaint;
+                    var urgent = row.IsEmergency || row.Timer.IsExpired;
+                    <a asp-action="Job" asp-route-id="@c.ComplaintId" class="wd-job @(urgent ? "wd-job-urgent" : "")">
+                        <div class="wd-job-main">
+                            <div class="wd-job-top">
+                                <span class="wd-job-code">@DisplayHelper.JobCode(c.ComplaintId)</span>
+                                <span class="rf-badge @DisplayHelper.StatusCss(c.StatusId)">@DisplayHelper.WorkerStatusLabel(c.StatusId)</span>
+                                @if (row.IsEmergency)
+                                {
+                                    <span class="rf-badge priority-emergency"><i class="bi bi-exclamation-octagon-fill"></i> Emergency</span>
+                                }
+                                @if (row.AwaitingReply)
+                                {
+                                    <span class="rf-badge status-submitted"><i class="bi bi-chat-dots"></i> Student replied</span>
+                                }
+                            </div>
+                            <div class="wd-job-title">@row.CategoryName <span class="wd-job-room">· Room @c.RoomNumber</span></div>
+                            @if (c.ScheduledVisitAt is not null && c.ScheduledVisitAt.Value.AsUtc() > DateTime.UtcNow.AddHours(-1))
+                            {
+                                <div class="wd-job-visit"><i class="bi bi-calendar-event"></i> Visit @c.ScheduledVisitAt.ToSaTime("ddd d MMM, HH:mm")</div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(c.Description))
+                            {
+                                <div class="wd-job-desc">@c.Description</div>
+                            }
+                        </div>
+                        <div class="wd-job-side">
+                            <partial name="_TimerBadge" model="row" />
+                            <span class="wd-job-go"><i class="bi bi-chevron-right"></i></span>
+                        </div>
+                    </a>
+                }
+            </div>
+            @if (open.Count > 6)
+            {
+                <a asp-action="Jobs" class="wd-more">+ @(open.Count - 6) more open jobs</a>
+            }
+        }
+    </div>
+
+    <div class="col-xl-4">
+        <div class="wd-section-head"><h2>Your status</h2></div>
+        <form asp-action="SetAvailability" method="post" class="wd-avail @(Model.IsAvailable ? "wd-avail-on" : "wd-avail-off")">
+            <input type="hidden" name="available" value="@((!Model.IsAvailable).ToString().ToLowerInvariant())" />
+            <span class="wd-avail-dot"></span>
+            <div class="wd-avail-text">
+                <strong>@(Model.IsAvailable ? "Available" : "Off duty")</strong>
+                <span>@(Model.IsAvailable ? "The manager sees you as free for work." : "The manager sees you as unavailable.")</span>
+            </div>
+            <button type="submit" class="btn btn-sm wd-avail-btn">@(Model.IsAvailable ? "Go off duty" : "Go available")</button>
+        </form>
+
+        <div class="wd-section-head mt-4"><h2>Your performance</h2></div>
+        <div class="wd-perf">
+            <div class="wd-perf-grid">
+                <div><div class="wd-perf-value">@(onTime is null ? "-" : onTime + "%")</div><div class="wd-perf-label">On time@(onTime is null ? "" : " · " + DisplayHelper.RateLabel(onTime.Value))</div></div>
+                <div><div class="wd-perf-value">@(avgHours is null ? "-" : avgHours.Value < 1 ? "<1h" : Math.Round(avgHours.Value) + "h")</div><div class="wd-perf-label">Avg. time to finish</div></div>
+                <div><div class="wd-perf-value">@resolvedJobs.Count</div><div class="wd-perf-label">Jobs completed</div></div>
+            </div>
+            <div class="wd-bars" aria-label="Jobs completed in the last 7 days">
+                @for (var i = 0; i < days.Count; i++)
+                {
+                    <div class="wd-bar-col" title="@days[i].ToString("ddd d MMM"): @perDay[i]">
+                        <div class="wd-bar-track"><div class="wd-bar @(perDay[i] == 0 ? "wd-bar-zero" : "")" style="height:@(perDay[i] == 0 ? 6 : 12 + 88 * perDay[i] / peak)%"></div></div>
+                        <div class="wd-bar-day">@days[i].ToString("ddd")[..1]</div>
+                    </div>
+                }
+            </div>
+            <div class="wd-perf-foot">Completed in the last 7 days</div>
+        </div>
+
+        <div class="wd-section-head mt-4"><h2>Heads up</h2></div>
+        <div class="wd-side">
+            @foreach (var due in Model.DueSoon)
+            {
+                <a asp-action="Job" asp-route-id="@due.Complaint.ComplaintId" class="wd-note wd-note-amber">
+                    <i class="bi bi-alarm"></i>
+                    <span><strong>@DisplayHelper.JobCode(due.Complaint.ComplaintId)</strong> is due in @TimerHelper.RemainingText(due.Complaint.Deadline).</span>
+                </a>
+            }
+            @if (needsReply > 0)
+            {
+                <a asp-action="Jobs" class="wd-note wd-note-blue">
+                    <i class="bi bi-chat-dots"></i>
+                    <span>@needsReply @(needsReply == 1 ? "student is" : "students are") waiting for your reply.</span>
+                </a>
+            }
+            @if (!Model.DueSoon.Any() && needsReply == 0)
+            {
+                <div class="wd-note wd-note-green">
+                    <i class="bi bi-emoji-smile"></i>
+                    <span>Nothing is waiting on you. Nice work.</span>
+                </div>
+            }
+            <div class="wd-note wd-note-plain">
+                <i class="bi bi-info-circle"></i>
+                <span>Jobs are assigned to you automatically. Please respond within 48 hours.</span>
+            </div>
+        </div>
+    </div>
+</div>

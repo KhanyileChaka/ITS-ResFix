@@ -1,0 +1,158 @@
+@model WorkersManagementViewModel
+@{
+    ViewData["Title"] = "Manage Workers";
+    ViewData["CustomHeader"] = true;
+    var available = Model.Workers.Count(w => w.IsAvailable && w.AccountStatus == "active");
+    var showRemoved = ViewBag.ShowRemoved == true;
+    int removedCount = ViewBag.RemovedCount is int rc ? rc : 0;
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title mb-1">Workers</h1>
+        <p class="page-subtitle">Internal maintenance staff. New complaints are assigned to them by the rules you set.</p>
+    </div>
+    <button type="button" class="btn btn-rf-primary btn-sm ms-auto" data-bs-toggle="modal" data-bs-target="#addWorkerModal"><i class="bi bi-plus-lg"></i> Add worker</button>
+</div>
+
+<div class="pm-chips mb-3">
+    <span class="pm-chip"><strong>@Model.Workers.Count</strong> workers</span>
+    <span class="pm-chip pm-chip-green"><strong>@available</strong> available</span>
+    <span class="pm-chip"><strong>@(Model.Workers.Count - available)</strong> off duty</span>
+    <span class="pm-chip pm-chip-blue"><strong>@Model.Workers.Sum(w => w.AssignedJobs)</strong> jobs assigned</span>
+    @if (showRemoved)
+    {
+        <a class="pm-chip" asp-action="Workers"><i class="bi bi-arrow-left"></i> Back to current workers</a>
+    }
+    else if (removedCount > 0)
+    {
+        <a class="pm-chip" asp-action="Workers" asp-route-removed="true"><strong>@removedCount</strong> removed</a>
+    }
+</div>
+
+@if (Model.Workers.Count == 0)
+{
+    <div class="rf-card">
+        <div class="empty-state">
+            <i class="bi bi-people"></i>
+            <p>No workers yet. <button type="button" class="btn btn-link p-0 align-baseline text-rf-green" data-bs-toggle="modal" data-bs-target="#addWorkerModal">Add a worker</button> to enable auto-assignment.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="pm-cards">
+        @foreach (var w in Model.Workers)
+        {
+            var inactive = w.AccountStatus != "active";
+            <div class="pm-card @(inactive ? "pm-card-inactive" : "")">
+                <div class="pm-card-top">
+                    <span class="avatar pm-avatar-lg">@DisplayHelper.Initials(w.Name)</span>
+                    <div class="pm-card-id">
+                        <div class="pm-card-name">@w.Name</div>
+                        <div class="pm-card-sub">@(w.Specialisation ?? "General maintenance")</div>
+                    </div>
+                    @if (inactive)
+                    {
+                        <span class="rf-badge @(w.AccountStatus == "suspended" ? "status-progress" : "status-rejected")" title="@w.StatusReason">@(w.AccountStatus == "suspended" ? "Suspended" : "Removed")</span>
+                    }
+                    else
+                    {
+                        <span class="rf-badge @(w.IsAvailable ? "avail-badge-available" : "avail-badge-busy")">@(w.IsAvailable ? "Available" : "Off duty")</span>
+                    }
+                </div>
+                <div class="pm-card-stats">
+                    <div><div class="pm-stat-num">@w.AssignedJobs</div><div class="pm-stat-label">Jobs assigned</div></div>
+                    <div>
+                        <div class="pm-stat-label">Phone</div>
+                        @if (string.IsNullOrWhiteSpace(w.Phone))
+                        {
+                            <div class="pm-stat-text text-muted">Not added</div>
+                        }
+                        else
+                        {
+                            <a class="pm-stat-text" href="tel:@w.Phone"><i class="bi bi-telephone"></i> @w.Phone</a>
+                        }
+                    </div>
+                </div>
+                @if (inactive && !string.IsNullOrWhiteSpace(w.StatusReason))
+                {
+                    <div class="small text-muted mb-2">Reason: @w.StatusReason</div>
+                }
+                <div class="pm-card-actions pm-card-actions-grid">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-worker-edit="@w.WorkerId" data-name="@w.Name" data-email="@w.Email" data-phone="@w.Phone" data-spec="@w.Specialisation"><i class="bi bi-pencil"></i> Edit</button>
+                    @if (inactive)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-secondary pm-span-2" data-access data-kind="worker" data-id="@w.WorkerId" data-name="@w.Name" data-status="@w.AccountStatus" data-jobs="@w.AssignedJobs"><i class="bi bi-shield-lock"></i> Manage access</button>
+                    }
+                    else
+                    {
+                    <form asp-action="ResendWorkerWelcome" method="post" class="d-contents" data-confirm="Send @w.Name a new welcome email and SMS? Any earlier link stops working.">
+                        <input type="hidden" name="workerId" value="@w.WorkerId" />
+                        <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-envelope-arrow-up"></i> Resend</button>
+                    </form>
+                    <form asp-action="RevokeWorkerAccess" method="post" class="d-contents" data-confirm="Revoke @w.Name's access? Every link already sent stops working and they are signed out. They cannot sign in again until you send a new welcome.">
+                        <input type="hidden" name="workerId" value="@w.WorkerId" />
+                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-slash-circle"></i> Revoke</button>
+                    </form>
+                    <button type="button" class="btn btn-sm btn-outline-secondary pm-span-3" data-access data-kind="worker" data-id="@w.WorkerId" data-name="@w.Name" data-status="@w.AccountStatus" data-jobs="@w.AssignedJobs"><i class="bi bi-shield-lock"></i> Suspend or remove</button>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+    <p class="small text-muted mt-3 mb-0">Workers set their own availability from their dashboard. It does not move jobs they already have.</p>
+}
+
+<partial name="_AccessModal" />
+<partial name="_AddWorkerModal" model="(AddWorkerViewModel)(ViewBag.AddWorkerModel ?? new AddWorkerViewModel())" />
+
+<div class="modal fade pm-modal" id="editWorkerModal" tabindex="-1" aria-labelledby="editWorkerTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+        <form asp-action="EditWorker" method="post" class="modal-content" novalidate>
+            <input type="hidden" name="workerId" id="editWorkerId" />
+            <div class="modal-header pm-modal-head">
+                <span class="pm-modal-icon"><i class="bi bi-pencil-square"></i></span>
+                <div class="pm-modal-titles">
+                    <h2 class="modal-title" id="editWorkerTitle">Edit worker</h2>
+                    <p>Fix a mistake in the details you entered.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label for="editWorkerName" class="form-label">Full name</label>
+                        <input name="fullName" id="editWorkerName" class="form-control" maxlength="120" autocomplete="off" required />
+                    </div>
+                    <div class="col-12">
+                        <label for="editWorkerEmail" class="form-label">Email address</label>
+                        <input name="email" id="editWorkerEmail" type="email" class="form-control" maxlength="120" autocomplete="off" inputmode="email" required />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="editWorkerSpec" class="form-label">Specialisation</label>
+                        <select name="specialisation" id="editWorkerSpec" class="form-select">
+                            <option value="">General maintenance</option>
+                            @foreach (var s in (ViewBag.Specialisations as List<string>) ?? new List<string>())
+                            {
+                                <option value="@s">@s</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="editWorkerPhone" class="form-label">Phone</label>
+                        <input name="phone" id="editWorkerPhone" class="form-control" inputmode="tel" autocomplete="off" placeholder="e.g. 082 123 4567" />
+                    </div>
+                </div>
+                <div class="info-banner mt-3 mb-0 d-none" id="editWorkerEmailNote">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    You changed the email. The link sent to the old address stops working, anyone signed in with it is signed out, and a new welcome is sent to the new address.
+                </div>
+            </div>
+            <div class="modal-footer pm-modal-foot">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-rf-primary"><i class="bi bi-check-lg"></i> Save changes</button>
+            </div>
+        </form>
+    </div>
+</div>

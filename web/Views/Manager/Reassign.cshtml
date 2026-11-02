@@ -1,0 +1,138 @@
+@model ReassignViewModel
+@{
+    var c = Model.Row.Complaint;
+    var code = DisplayHelper.JobCode(c.ComplaintId);
+    ViewData["Title"] = $"Assign Complaint #{code}";
+    ViewData["CustomHeader"] = true;
+}
+
+<div class="page-header mb-4">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+        <h1 class="page-title mb-0">Assign Complaint #@code</h1>
+        <span class="rf-badge status-progress"><i class="bi bi-stopwatch"></i> @Model.Row.StatusName</span>
+    </div>
+    <a asp-action="ComplaintDetail" asp-route-id="@c.ComplaintId" class="btn btn-outline-secondary btn-sm ms-auto">
+        <i class="bi bi-arrow-left me-1"></i> Back to Details
+    </a>
+</div>
+
+<div class="row g-4">
+    <!-- Left: Complaint Summary + Email Preview -->
+    <div class="col-lg-5">
+        <div class="rf-card rf-card-padded mb-3">
+            <h2 class="card-heading">Complaint Summary</h2>
+            <div class="row g-3 mb-3">
+                <div class="col-6">
+                    <div class="field-label">ROOM</div>
+                    <div class="field-value fs-5">@c.RoomNumber</div>
+                </div>
+                <div class="col-6">
+                    <div class="field-label">CATEGORY</div>
+                    <div class="field-value fs-5">@Model.Row.CategoryName</div>
+                </div>
+            </div>
+            <div class="field-label mb-1">DESCRIPTION</div>
+            <p class="small mb-3" style="color:var(--rf-text);">@c.Description</p>
+            <div class="field-label mb-2">PHOTO ATTACHED</div>
+            @if (DisplayHelper.IsHttpsUrl(c.PhotoUrl))
+            {
+                <a href="@c.PhotoUrl" target="_blank" rel="noopener">
+                    <img src="@c.PhotoUrl" alt="Complaint photo" class="complaint-photo" style="max-height:160px;" />
+                </a>
+            }
+            else
+            {
+                <div class="photo-placeholder py-4">
+                    <i class="bi bi-image" style="font-size:2rem;display:block;margin-bottom:6px;"></i>
+                    No photo
+                </div>
+            }
+        </div>
+
+        @if (Model.ExternalCompanyName is not null)
+        {
+            <div class="rf-card rf-card-padded">
+                <h2 class="card-heading">Email Dispatch Preview</h2>
+                <div class="email-preview">
+                    <div class="email-field"><strong>To:</strong> @Model.ExternalContactEmail</div>
+                    <div class="email-field"><strong>Subject:</strong> Maintenance Request – Complaint #@code</div>
+                    <div class="email-body mt-2">
+                        <p>Dear @Model.ExternalCompanyName,</p>
+                        <p>You have been assigned a maintenance request at ITS Residence.</p>
+                        <p>Details:<br />
+                        - Complaint Reference: #@code<br />
+                        - Room: @c.RoomNumber<br />
+                        - Category: @Model.Row.CategoryName<br />
+                        - Description: @(c.Description.Length > 80 ? c.Description[..80] + "…" : c.Description)
+                        </p>
+                        <p>Please confirm receipt and coordinate with management with your estimated arrival time.</p>
+                        <p>Kind regards,<br />ITS Residence Maintenance Team</p>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Right: Select Provider -->
+    <div class="col-lg-7">
+        <div class="rf-card rf-card-padded">
+            <h2 class="card-heading">Select Maintenance Provider</h2>
+
+            <form asp-action="DoReassign" method="post">
+                <input type="hidden" name="complaintId" value="@c.ComplaintId" />
+
+                @if (Model.ExternalCompanyName is not null)
+                {
+                    <div class="provider-card provider-card-selected" id="externalProviderCard">
+                        <label class="d-flex align-items-start gap-3 mb-0 w-100" style="cursor:pointer;">
+                            <input type="radio" name="useExternal" value="true" checked
+                                   class="form-check-input flex-shrink-0 mt-1" style="width:20px;height:20px;accent-color:var(--rf-blue);" />
+                            <div>
+                                <div class="provider-label">PROVIDER 1</div>
+                                <div class="provider-name">@Model.ExternalCompanyName</div>
+                                @if (!string.IsNullOrWhiteSpace(Model.ExternalContactEmail))
+                                {
+                                    <div class="provider-contact">@Model.ExternalContactEmail</div>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(Model.ExternalContactPhone))
+                                {
+                                    <div class="provider-contact">@Model.ExternalContactPhone</div>
+                                }
+                            </div>
+                        </label>
+                    </div>
+                }
+
+                @for (int i = 0; i < Model.Workers.Count; i++)
+                {
+                    var w = Model.Workers[i];
+                    <div class="provider-card">
+                        <label class="d-flex align-items-start gap-3 mb-0 w-100" style="cursor:pointer;">
+                            <input type="radio" name="workerId" value="@w.WorkerId"
+                                   class="form-check-input flex-shrink-0 mt-1" style="width:20px;height:20px;accent-color:var(--rf-blue);"
+                                   data-uncheck="[name=useExternal]" />
+                            <div>
+                                <div class="provider-label">WORKER @(i + 1)</div>
+                                <div class="provider-name">@w.Name</div>
+                                @if (!string.IsNullOrWhiteSpace(w.Specialisation))
+                                {
+                                    <div class="provider-contact">@w.Specialisation</div>
+                                }
+                                <div class="provider-contact">
+                                    <span class="rf-badge @(w.IsAvailable ? "avail-badge-available" : "avail-badge-busy") mt-1">
+                                        @(w.IsAvailable ? "Available" : "Busy")
+                                    </span>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                }
+
+                <div class="d-flex gap-3 mt-4">
+                    <button type="submit" class="btn btn-rf-primary px-4 py-2 fw-semibold">Send Email</button>
+                    <a asp-action="ExpiredComplaints" class="btn btn-outline-secondary px-4 py-2">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

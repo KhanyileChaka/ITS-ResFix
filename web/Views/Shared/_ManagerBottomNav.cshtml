@@ -1,0 +1,9 @@
+@functions {
+    string Active(params string[] actions) =>
+        actions.Contains(ViewContext.RouteData.Values["action"]?.ToString()) ? "active" : "";
+}
+<a asp-controller="Manager" asp-action="Dashboard" class="bottom-link @Active("Dashboard")"><i class="bi bi-grid-1x2"></i><span>Home</span></a>
+<a asp-controller="Manager" asp-action="Complaints" class="bottom-link @Active("Complaints", "ComplaintDetail", "ExpiredComplaints", "Reassign")"><i class="bi bi-clipboard-check"></i><span>Complaints</span></a>
+<a asp-controller="Manager" asp-action="Students" class="bottom-link @Active("Students", "AddStudent")"><i class="bi bi-mortarboard"></i><span>Students</span></a>
+<a asp-controller="Manager" asp-action="Workers" class="bottom-link @Active("Workers", "AddWorker")"><i class="bi bi-people"></i><span>Workers</span></a>
+<a asp-controller="Manager" asp-action="Reports" class="bottom-link @Active("Reports")"><i class="bi bi-bar-chart-line"></i><span>Reports</span></a>

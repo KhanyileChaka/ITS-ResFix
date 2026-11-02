@@ -1,0 +1,42 @@
+@model ConversationViewModel
+@* Conversation between staff and the student. Shown on the manager and worker complaint pages.
+   The first render is plain HTML; site.js then keeps it live (new messages, typing, seen ticks) while the page is open. *@
+@{
+    var worker = Model.Controller == "Worker";
+    var chatUrl = Url.Action(worker ? "JobChat" : "ComplaintChat", Model.Controller, new { id = Model.ComplaintId });
+    var typingUrl = Url.Action(worker ? "JobTyping" : "ComplaintTyping", Model.Controller, new { id = Model.ComplaintId });
+}
+<div class="rf-card rf-card-padded mb-3" data-chat data-chat-url="@chatUrl" data-typing-url="@typingUrl">
+    <h2 class="card-heading"><i class="bi bi-chat-dots me-2"></i>Conversation with the student</h2>
+    <p class="text-muted small mb-0 @(Model.Messages.Count == 0 ? "" : "d-none")" data-chat-empty>No messages yet.@(Model.CanReply ? " Write below to contact the student." : "")</p>
+    <div class="chat" data-chat-list>
+        @foreach (var m in Model.Messages)
+        {
+            var staff = m.Sender == "staff";
+            <div class="chat-row @(staff ? "chat-row-staff" : "")">
+                <div class="chat-bubble @(staff ? "chat-bubble-staff" : "chat-bubble-student")">
+                    <div class="chat-name">@(m.SenderName ?? (staff ? "Staff" : "Student")) &middot; @(((DateTime?)m.CreatedAt).ToSaTime("dd MMM HH:mm"))</div>
+                    <div class="chat-text">@m.Body</div>
+                    @if (DisplayHelper.IsHttpsUrl(m.PhotoUrl))
+                    {
+                        <a href="@m.PhotoUrl" target="_blank" rel="noopener"><img src="@m.PhotoUrl" alt="Photo from the student" class="chat-photo" /></a>
+                    }
+                    @if (staff)
+                    {
+                        <div class="chat-ticks @(m.ReadAt is not null ? "chat-ticks-seen" : "")" title="@(m.ReadAt is not null ? "Seen by the student" : "Sent")"><i class="bi @(m.ReadAt is not null ? "bi-check2-all" : "bi-check2")"></i></div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+    <div class="chat-typing d-none" data-chat-typing><span class="chat-dots"><span></span><span></span><span></span></span> <span data-chat-typing-name>Student</span> is typing...</div>
+    @if (Model.CanReply)
+    {
+        <form asp-controller="@Model.Controller" asp-action="PostMessage" asp-route-id="@Model.ComplaintId" method="post" class="mt-3" data-chat-form>
+            <textarea name="body" rows="2" maxlength="1000" required class="form-control mb-2" placeholder="Write a message to the student... (Enter to send, Shift+Enter for a new line)"></textarea>
+            <button type="submit" class="btn btn-rf-primary btn-sm"><i class="bi bi-send me-1"></i>Send message</button>
+            <span class="small text-muted ms-2">The student is notified (and by SMS if they opted in).</span>
+            <div class="text-danger small mt-2 d-none" data-chat-error></div>
+        </form>
+    }
+</div>

@@ -1,0 +1,28 @@
+@functions {
+    string Active(params string[] actions) =>
+        actions.Contains(ViewContext.RouteData.Values["action"]?.ToString()) ? "active" : "";
+}
+<a asp-controller="Manager" asp-action="Dashboard" title="Dashboard" class="sidebar-link @Active("Dashboard")">
+    <i class="bi bi-grid-1x2"></i><span>Dashboard</span>
+</a>
+<a asp-controller="Manager" asp-action="Complaints" title="Complaints" class="sidebar-link @Active("Complaints","ComplaintDetail","ExpiredComplaints","Reassign")">
+    <i class="bi bi-clipboard-check"></i><span>Complaints</span>
+</a>
+<a asp-controller="Manager" asp-action="Students" title="Students" class="sidebar-link @Active("Students","AddStudent")">
+    <i class="bi bi-mortarboard"></i><span>Students</span>
+</a>
+<a asp-controller="Manager" asp-action="Categories" title="Categories" class="sidebar-link @Active("Categories")">
+    <i class="bi bi-tags"></i><span>Categories</span>
+</a>
+<a asp-controller="Manager" asp-action="ExternalCompany" title="External Company" class="sidebar-link @Active("ExternalCompany")">
+    <i class="bi bi-wrench-adjustable"></i><span>External Company</span>
+</a>
+<a asp-controller="Manager" asp-action="Workers" title="Workers" class="sidebar-link @Active("Workers","AddWorker")">
+    <i class="bi bi-people"></i><span>Workers</span>
+</a>
+<a asp-controller="Manager" asp-action="AssignmentRules" title="Auto-Assignment Rules" class="sidebar-link @Active("AssignmentRules")">
+    <i class="bi bi-diagram-3"></i><span>Auto-Assignment Rules</span>
+</a>
+<a asp-controller="Manager" asp-action="Reports" title="Reports" class="sidebar-link @Active("Reports")">
+    <i class="bi bi-bar-chart-line"></i><span>Reports</span>
+</a>

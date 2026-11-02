@@ -1,0 +1,74 @@
+@model WorkerJobsViewModel
+@* Shared by the worker Dashboard and My Assigned Jobs pages. *@
+<div class="info-banner">
+    <i class="bi bi-info-circle"></i>
+    Jobs are automatically assigned to you. Please respond within 48 hours.
+</div>
+
+<h2 class="section-title">@Model.TableHeading</h2>
+
+<div class="rf-card mb-3">
+    @if (Model.Jobs.Count == 0)
+    {
+        <div class="empty-state">
+            <i class="bi bi-cup-hot"></i>
+            <p>No jobs are assigned to you right now.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table rf-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Room</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                        <th>Deadline</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Jobs)
+                    {
+                        var c = row.Complaint;
+                        <tr>
+                            <td>
+                                <a asp-action="Job" asp-route-id="@c.ComplaintId" class="job-link">@DisplayHelper.JobCode(c.ComplaintId)</a>
+                                @if (row.IsEmergency && c.StatusId != StatusIds.Resolved)
+                                {
+                                    <i class="bi bi-exclamation-octagon-fill text-danger ms-1" title="Emergency"></i>
+                                }
+                            </td>
+                            <td>@c.RoomNumber</td>
+                            <td>@row.CategoryName</td>
+                            <td><span class="rf-badge @DisplayHelper.StatusCss(c.StatusId)">@DisplayHelper.WorkerStatusLabel(c.StatusId)</span></td>
+                            <td><partial name="_JobTimer" model="row" /></td>
+                            <td><a asp-action="Job" asp-route-id="@c.ComplaintId" class="btn btn-rf-navy btn-view">View</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@foreach (var due in Model.DueSoon)
+{
+    <div class="warning-banner">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i> Job @DisplayHelper.JobCode(due.Complaint.ComplaintId) deadline is in @TimerHelper.RemainingText(due.Complaint.Deadline). Please respond soon.
+    </div>
+}
+
+<div class="d-flex flex-wrap gap-3 mt-3">
+    <a asp-action="Jobs" class="btn btn-rf-outline-navy">View All Jobs</a>
+    @if (Model.NextJob is not null)
+    {
+        <a asp-action="Job" asp-route-id="@Model.NextJob.Complaint.ComplaintId" class="btn btn-rf-primary">Update Status</a>
+    }
+    else
+    {
+        <button type="button" class="btn btn-rf-primary" disabled>Update Status</button>
+    }
+</div>

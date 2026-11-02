@@ -1,0 +1,76 @@
+@model WorkerHistoryViewModel
+@{
+    ViewData["Title"] = "Work History";
+    ViewData["CustomHeader"] = true;
+    var heading = Model.Filter switch { "completed" => "Completed Jobs", "inprogress" => "Jobs In Progress", _ => "All Jobs" };
+}
+<div class="page-header">
+    <div>
+        <h1 class="page-title mb-1">Work History</h1>
+        <p class="page-subtitle">Review your completed maintenance work and performance.</p>
+    </div>
+    <form method="get" asp-action="History" class="history-filter">
+        <label for="status" class="form-label small mb-1">Status</label>
+        <select id="status" name="status" class="form-select" data-autosubmit>
+            <option value="all" selected="@(Model.Filter == "all")">All</option>
+            <option value="completed" selected="@(Model.Filter == "completed")">Completed</option>
+            <option value="inprogress" selected="@(Model.Filter == "inprogress")">In Progress</option>
+        </select>
+        <div class="form-hint">All · Completed · In Progress</div>
+        <noscript><button type="submit" class="btn btn-sm btn-rf-navy mt-1">Apply</button></noscript>
+    </form>
+</div>
+
+<div class="rf-card rf-card-padded mb-4">
+    <div class="d-flex justify-content-between align-items-baseline mb-3">
+        <h2 class="card-heading mb-0">@heading</h2>
+        <span class="form-hint">Showing @Model.Jobs.Count job@(Model.Jobs.Count == 1 ? "" : "s")</span>
+    </div>
+
+    @if (Model.Jobs.Count == 0)
+    {
+        <div class="empty-state">
+            <i class="bi bi-clock-history"></i>
+            <p>No jobs match this filter yet.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive bordered-table">
+            <table class="table rf-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Room</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                        <th>Completed Date</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Jobs)
+                    {
+                        var c = row.Complaint;
+                        <tr>
+                            <td><a asp-action="Job" asp-route-id="@c.ComplaintId" class="job-link">@DisplayHelper.JobCode(c.ComplaintId)</a></td>
+                            <td>@c.RoomNumber</td>
+                            <td>@row.CategoryName</td>
+                            <td><span class="rf-badge @DisplayHelper.StatusCss(c.StatusId)">@DisplayHelper.WorkerStatusLabel(c.StatusId)</span></td>
+                            <td>@c.ResolvedAt.ToSaTime("dd MMM yyyy")</td>
+                            <td><a asp-action="Job" asp-route-id="@c.ComplaintId" class="btn btn-rf-navy btn-view">View</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<div class="summary-banner">
+    <span class="summary-icon"><i class="bi bi-award"></i></span>
+    <span>
+        Total Jobs Completed: @Model.TotalCompleted |
+        On-Time Rate: @(Model.OnTimeRate is int rate ? $"{rate}%" : "—")
+    </span>
+</div>

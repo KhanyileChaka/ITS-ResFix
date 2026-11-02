@@ -1,0 +1,115 @@
+@model ComplaintListViewModel
+@{
+    ViewData["Title"] = Model.EmergencyOnly ? "Emergency Complaints" : "Complaints";
+    ViewData["CustomHeader"] = true;
+    var tabs = new (int? Id, string Label, int Count)[]
+    {
+        (null, "All", Model.CountAll),
+        (StatusIds.Submitted, "Submitted", Model.CountSubmitted),
+        (StatusIds.InProgress, "In progress", Model.CountInProgress),
+        (StatusIds.Resolved, "Resolved", Model.CountResolved),
+        (StatusIds.Rejected, "Rejected (AI)", Model.CountRejected)
+    };
+    var filtered = !string.IsNullOrWhiteSpace(Model.SearchQuery) || Model.CategoryFilter.HasValue
+        || !string.IsNullOrWhiteSpace(Model.PriorityFilter) || !string.IsNullOrWhiteSpace(Model.TimerStatusFilter);
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title mb-1">@ViewData["Title"]</h1>
+        <p class="page-subtitle">Every request from students, with its timer, worker and status.</p>
+    </div>
+    <div class="ms-auto d-flex gap-2 flex-wrap">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-print><i class="bi bi-printer"></i> Print</button>
+        <a asp-action="ExportComplaints" asp-route-emergency="@Model.EmergencyOnly" asp-route-status="@Model.StatusFilter"
+           asp-route-search="@Model.SearchQuery" asp-route-category="@Model.CategoryFilter"
+           asp-route-timerStatus="@Model.TimerStatusFilter" asp-route-priority="@Model.PriorityFilter"
+           class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> Export CSV</a>
+        @if (Model.EmergencyOnly)
+        {
+            <a asp-action="Complaints" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i> All complaints</a>
+        }
+        else
+        {
+            <a asp-action="Complaints" asp-route-emergency="true" class="btn btn-danger btn-sm fw-semibold">
+                <i class="bi bi-exclamation-octagon-fill"></i> Emergencies
+            </a>
+        }
+    </div>
+</div>
+
+@if (Model.EmergencyOnly)
+{
+    <div class="alert alert-danger d-flex align-items-center gap-2 mb-3">
+        <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+        <span>These complaints were marked urgent by students or the AI review and need immediate attention.</span>
+    </div>
+}
+
+<div class="wj-tabs">
+    @foreach (var t in tabs)
+    {
+        <a asp-action="Complaints" asp-route-emergency="@Model.EmergencyOnly" asp-route-status="@t.Id" asp-route-search="@Model.SearchQuery"
+           asp-route-category="@Model.CategoryFilter" asp-route-timerStatus="@Model.TimerStatusFilter" asp-route-priority="@Model.PriorityFilter"
+           class="wj-tab @(Model.StatusFilter == t.Id ? "active" : "")">@t.Label <span>@t.Count</span></a>
+    }
+</div>
+
+<div class="rf-panel mb-3">
+    <div class="p-3 border-bottom">
+        <form method="get" asp-action="Complaints" class="filter-row align-items-end">
+            <input type="hidden" name="emergency" value="@Model.EmergencyOnly.ToString().ToLower()" />
+            <input type="hidden" name="status" value="@Model.StatusFilter" />
+
+            <div class="filter-group flex-grow-1" style="min-width:200px;">
+                <label>Search</label>
+                <div class="complaint-search-bar">
+                    <i class="bi bi-search"></i>
+                    <input type="text" name="search" class="form-control form-control-sm"
+                           placeholder="ID, room, student name or number" value="@Model.SearchQuery" />
+                </div>
+            </div>
+            <div class="filter-group">
+                <label>Category</label>
+                <select name="category" class="form-select form-select-sm" data-autosubmit>
+                    <option value="">All</option>
+                    @foreach (var cat in Model.Categories)
+                    {
+                        <option value="@cat.CategoryId" selected="@(Model.CategoryFilter == cat.CategoryId)">@cat.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Priority</label>
+                <select name="priority" class="form-select form-select-sm" data-autosubmit>
+                    <option value="">All</option>
+                    <option value="Normal" selected="@(Model.PriorityFilter == "Normal")">Normal</option>
+                    <option value="Emergency" selected="@(Model.PriorityFilter == "Emergency")">Emergency</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Timer</label>
+                <select name="timerStatus" class="form-select form-select-sm" data-autosubmit>
+                    <option value="">All</option>
+                    <option value="timer-ok" selected="@(Model.TimerStatusFilter == "timer-ok")">On time</option>
+                    <option value="timer-warning" selected="@(Model.TimerStatusFilter == "timer-warning")">Due soon</option>
+                    <option value="timer-expired" selected="@(Model.TimerStatusFilter == "timer-expired")">Expired</option>
+                </select>
+            </div>
+            <div class="filter-group d-flex gap-2">
+                <button type="submit" class="btn btn-rf-primary btn-sm">Apply</button>
+                @if (filtered)
+                {
+                    <a asp-action="Complaints" asp-route-emergency="@Model.EmergencyOnly" asp-route-status="@Model.StatusFilter" class="btn btn-outline-secondary btn-sm">Clear</a>
+                }
+            </div>
+        </form>
+    </div>
+
+    <div class="px-3 py-2 border-bottom small text-muted">
+        Showing <strong>@Model.Complaints.Count</strong> complaint@(Model.Complaints.Count == 1 ? "" : "s")
+        @if (!string.IsNullOrWhiteSpace(Model.SearchQuery)) { <span> matching "<strong>@Model.SearchQuery</strong>"</span> }
+    </div>
+
+    <partial name="_ComplaintTable" model="Model.Complaints" />
+</div>

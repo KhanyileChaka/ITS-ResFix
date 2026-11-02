@@ -1,0 +1,17 @@
+@model ComplaintRow
+@* Deadline chip used in the worker job tables: 36h left, Done, EXPIRED *@
+@if (Model.Complaint.StatusId == StatusIds.Resolved)
+{
+    <span class="job-timer timer-done"><i class="bi bi-check-circle-fill"></i> Done</span>
+}
+else if (Model.Complaint.Deadline is null)
+{
+    <span class="job-timer timer-idle"><i class="bi bi-stopwatch"></i> Not started</span>
+}
+else
+{
+    <span class="job-timer @Model.Timer.CssClass" data-deadline="@Model.Complaint.Deadline.ToIsoUtc()">
+        <i class="bi @(Model.Timer.IsExpired ? "bi-exclamation-circle-fill" : "bi-stopwatch") timer-icon"></i>
+        <span class="timer-text">@Model.Timer.Label</span>
+    </span>
+}

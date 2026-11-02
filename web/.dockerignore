@@ -1,0 +1,8 @@
+﻿bin/
+obj/
+.git/
+.vs/
+**/.env
+**/secrets.json
+supabase/
+README.md

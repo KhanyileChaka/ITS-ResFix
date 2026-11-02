@@ -1,0 +1,16 @@
+@functions {
+    string Active(params string[] actions) =>
+        actions.Contains(ViewContext.RouteData.Values["action"]?.ToString()) ? "active" : "";
+}
+<a asp-controller="Worker" asp-action="Dashboard" title="Dashboard" class="sidebar-link @Active("Dashboard")">
+    <i class="bi bi-grid"></i><span>Dashboard</span>
+</a>
+<a asp-controller="Worker" asp-action="Jobs" title="My Assigned Jobs" class="sidebar-link @Active("Jobs", "Job")">
+    <i class="bi bi-briefcase"></i><span>My Assigned Jobs</span>
+</a>
+<a asp-controller="Worker" asp-action="History" title="Work History" class="sidebar-link @Active("History")">
+    <i class="bi bi-clock-history"></i><span>Work History</span>
+</a>
+<a asp-controller="Worker" asp-action="Profile" title="Profile" class="sidebar-link @Active("Profile", "ChangePassword")">
+    <i class="bi bi-person"></i><span>Profile</span>
+</a>

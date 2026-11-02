@@ -1,0 +1,118 @@
+@model ManagerDashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+    var fullName = User.Identity?.Name ?? "there";
+    var firstName = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? fullName;
+    var sa = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, DisplayHelper.SaZone);
+    var greeting = sa.Hour < 12 ? "Good morning" : sa.Hour < 18 ? "Good afternoon" : "Good evening";
+
+    var attentionCount = Model.Emergencies + Model.Overdue + Model.Unassigned + Model.Appeals + Model.AwaitingReply;
+    var summary = attentionCount == 0
+        ? "Nothing needs your attention right now."
+        : $"{attentionCount} {(attentionCount == 1 ? "item needs" : "items need")} your attention today.";
+
+    var open = Model.Submitted + Model.InProgress;
+    var statusTotal = Math.Max(1, open + Model.Resolved);
+    var peak = Math.Max(1, Model.PerDay.Max());
+    var maxLoad = Math.Max(1, Model.Workers.Select(w => w.Open).DefaultIfEmpty(0).Max());
+    var attention = new (string Label, int Count, string Icon, string Css, string Href)[]
+    {
+        ("Emergencies", Model.Emergencies, "exclamation-octagon", "md-red", Url.Action("Complaints", "Manager", new { emergency = true })!),
+        ("Overdue", Model.Overdue, "alarm", "md-amber", Url.Action("ExpiredComplaints", "Manager")!),
+        ("Unassigned", Model.Unassigned, "person-dash", "md-blue", Url.Action("Complaints", "Manager")!),
+        ("Appeals", Model.Appeals, "arrow-repeat", "md-purple", Url.Action("Complaints", "Manager")!),
+        ("Student replies", Model.AwaitingReply, "chat-dots", "md-teal", Url.Action("Complaints", "Manager")!)
+    };
+}
+
+<section class="wd-hero">
+    <div class="wd-hero-text">
+        <div class="wd-date">@sa.ToString("dddd, d MMMM")</div>
+        <h1>@greeting, @firstName</h1>
+        <p>@summary Complaints are assigned to workers automatically, and every job has a 48-hour timer.</p>
+        <div class="wd-hero-actions">
+            <a asp-action="Complaints" class="btn wd-btn-light"><i class="bi bi-clipboard-check"></i> All complaints</a>
+            <a asp-action="Reports" class="btn wd-btn-ghost"><i class="bi bi-bar-chart-line"></i> Reports</a>
+            <a asp-action="AssignmentRules" class="btn wd-btn-ghost"><i class="bi bi-diagram-3"></i> Assignment rules</a>
+        </div>
+    </div>
+    <div class="md-hero-kpis">
+        <div class="md-kpi"><div class="md-kpi-value">@Model.Total</div><div class="md-kpi-label">Total complaints</div></div>
+        <div class="md-kpi"><div class="md-kpi-value">@(Model.OnTimeRate is null ? "-" : Model.OnTimeRate + "%")</div><div class="md-kpi-label">Resolved on time</div></div>
+    </div>
+</section>
+
+<div class="wd-section-head"><h2>Needs attention</h2></div>
+<div class="md-attention mb-4">
+    @foreach (var a in attention)
+    {
+        <a href="@a.Href"
+           class="md-att @a.Css @(a.Count == 0 ? "md-att-zero" : "")">
+            <span class="md-att-icon"><i class="bi bi-@a.Icon"></i></span>
+            <span class="md-att-count">@a.Count</span>
+            <span class="md-att-label">@a.Label</span>
+        </a>
+    }
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-xl-3"><div class="wd-stat wd-blue"><span class="wd-stat-icon"><i class="bi bi-file-earmark-text"></i></span><div><div class="wd-stat-value">@Model.Submitted</div><div class="wd-stat-label">Submitted</div></div></div></div>
+    <div class="col-6 col-xl-3"><div class="wd-stat wd-amber"><span class="wd-stat-icon"><i class="bi bi-tools"></i></span><div><div class="wd-stat-value">@Model.InProgress</div><div class="wd-stat-label">In progress</div></div></div></div>
+    <div class="col-6 col-xl-3"><div class="wd-stat wd-green"><span class="wd-stat-icon"><i class="bi bi-check2-circle"></i></span><div><div class="wd-stat-value">@Model.Resolved</div><div class="wd-stat-label">Resolved</div></div></div></div>
+    <div class="col-6 col-xl-3"><div class="wd-stat wd-red"><span class="wd-stat-icon"><i class="bi bi-slash-circle"></i></span><div><div class="wd-stat-value">@Model.Rejected</div><div class="wd-stat-label">Rejected by review</div></div></div></div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-7">
+        <div class="wd-section-head"><h2>Last 7 days</h2></div>
+        <div class="wd-perf">
+            <div class="md-split" role="img" aria-label="Open versus resolved complaints">
+                <div class="md-split-open" style="width:@(100 * open / statusTotal)%"></div>
+                <div class="md-split-done" style="width:@(100 * Model.Resolved / statusTotal)%"></div>
+            </div>
+            <div class="md-split-legend">
+                <span><i class="md-dot md-dot-open"></i> Open @open</span>
+                <span><i class="md-dot md-dot-done"></i> Resolved @Model.Resolved</span>
+            </div>
+            <div class="wd-bars md-bars" aria-label="New complaints in the last 7 days">
+                @for (var i = 0; i < Model.Days.Count; i++)
+                {
+                    <div class="wd-bar-col" title="@Model.Days[i].ToString("ddd d MMM"): @Model.PerDay[i] new">
+                        <div class="md-bar-num">@Model.PerDay[i]</div>
+                        <div class="wd-bar-track"><div class="wd-bar @(Model.PerDay[i] == 0 ? "wd-bar-zero" : "")" style="height:@(Model.PerDay[i] == 0 ? 6 : 12 + 88 * Model.PerDay[i] / peak)%"></div></div>
+                        <div class="wd-bar-day">@Model.Days[i].ToString("ddd")</div>
+                    </div>
+                }
+            </div>
+            <div class="wd-perf-foot">New complaints per day</div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="wd-section-head"><h2>Team workload</h2><a asp-action="Workers">Manage</a></div>
+        <div class="wd-perf md-team">
+            @if (Model.Workers.Count == 0)
+            {
+                <div class="empty-state py-4"><i class="bi bi-people"></i><p>No workers yet.</p></div>
+            }
+            @foreach (var w in Model.Workers)
+            {
+                <div class="md-worker">
+                    <span class="avatar md-worker-avatar">@DisplayHelper.Initials(w.Name)</span>
+                    <div class="md-worker-main">
+                        <div class="md-worker-top">
+                            <span class="md-worker-name">@w.Name</span>
+                            <span class="md-worker-state @(w.Available ? "on" : "off")">@(w.Available ? "Available" : "Off duty")</span>
+                        </div>
+                        <div class="md-worker-track"><div style="width:@(100 * w.Open / maxLoad)%"></div></div>
+                        <div class="md-worker-meta">@w.Open open @(w.Open == 1 ? "job" : "jobs")@(w.Overdue > 0 ? $" · {w.Overdue} overdue" : "")</div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="wd-section-head"><h2>Recent complaints</h2><a asp-action="Complaints">View all</a></div>
+<div class="rf-card md-recent">
+    <partial name="_ComplaintTable" model="Model.Recent" />
+</div>

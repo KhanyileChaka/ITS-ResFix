@@ -1,0 +1,73 @@
+@model CategoriesViewModel
+@{
+    ViewData["Title"] = "Categories";
+    ViewData["CustomHeader"] = true;
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title mb-1">Categories</h1>
+        <p class="page-subtitle">The kinds of problem students can report. Each one can be routed to a worker.</p>
+    </div>
+    <button type="button" class="btn btn-rf-primary btn-sm ms-auto" data-bs-toggle="modal" data-bs-target="#addCategoryModal"><i class="bi bi-plus-lg"></i> Add category</button>
+</div>
+
+<div class="row g-4">
+    <div class="col-12">
+
+        <div class="rf-panel">
+            <div class="rf-panel-header">
+                <h2>Current categories</h2>
+                <span class="rf-badge status-unknown">@Model.Categories.Count total</span>
+            </div>
+            @if (Model.Categories.Count == 0)
+            {
+                <div class="empty-state"><i class="bi bi-tags"></i><p>No categories yet.</p></div>
+            }
+            else
+            {
+                <div class="pm-list">
+                    @foreach (var cat in Model.Categories)
+                    {
+                        var used = Model.Counts.GetValueOrDefault(cat.CategoryId);
+                        <div class="pm-row">
+                            <span class="pm-row-icon"><i class="bi bi-tag"></i></span>
+                            <div class="pm-row-main">
+                                <div class="pm-row-title">@cat.Name</div>
+                                <div class="pm-row-sub">@used complaint@(used == 1 ? "" : "s") filed</div>
+                            </div>
+                            <form asp-action="DeleteCategory" method="post" class="d-inline" data-confirm="Delete '@cat.Name'? This cannot be undone.">
+                                <input type="hidden" name="categoryId" value="@cat.CategoryId" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> Delete</button>
+                            </form>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="modal fade pm-modal" id="addCategoryModal" tabindex="-1" aria-labelledby="addCategoryTitle" aria-hidden="true" @(ViewBag.OpenAdd == true ? "data-auto-open" : "")>
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+        <form asp-action="AddCategory" method="post" class="modal-content" novalidate>
+            <div class="modal-header pm-modal-head">
+                <span class="pm-modal-icon"><i class="bi bi-tag"></i></span>
+                <div class="pm-modal-titles">
+                    <h2 class="modal-title" id="addCategoryTitle">Add a category</h2>
+                    <p>It becomes a choice for students and a specialisation for workers.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <label asp-for="NewName" class="form-label"></label>
+                <input asp-for="NewName" class="form-control" placeholder="e.g. Pest control" autocomplete="off" />
+                <span asp-validation-for="NewName" class="text-danger small"></span>
+            </div>
+            <div class="modal-footer pm-modal-foot">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-rf-primary"><i class="bi bi-check-lg"></i> Add category</button>
+            </div>
+        </form>
+    </div>
+</div>

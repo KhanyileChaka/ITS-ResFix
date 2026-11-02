@@ -1,0 +1,162 @@
+@model ExternalCompanyPageViewModel
+@{
+    ViewData["Title"] = "External Company";
+    ViewData["CustomHeader"] = true;
+    var co = Model.Company;
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title mb-1">External Company</h1>
+        <p class="page-subtitle">The contractor that takes over when an internal worker cannot finish in time.</p>
+    </div>
+    <button type="button" class="btn btn-rf-primary btn-sm ms-auto" data-bs-toggle="modal" data-bs-target="#editCompanyModal">
+        <i class="bi bi-pencil"></i> Edit details
+    </button>
+</div>
+
+<div class="rf-card rf-card-padded mb-4">
+    @if (!co.Exists)
+    {
+        <div class="info-banner mb-0">
+            <i class="bi bi-info-circle-fill"></i>
+            No external company is set up yet. Choose "Edit details" to add one.
+        </div>
+    }
+    else
+    {
+        <div class="pm-company">
+            <span class="pm-company-badge"><i class="bi bi-building"></i></span>
+            <div class="pm-company-main">
+                <div class="pm-company-name">@co.CompanyName</div>
+                @if (co.IsActive) { <span class="rf-badge status-resolved">Active</span> } else { <span class="rf-badge status-unknown">Inactive</span> }
+            </div>
+            <div class="pm-company-contacts">
+                @if (!string.IsNullOrWhiteSpace(co.ContactEmail))
+                {
+                    <a href="mailto:@co.ContactEmail" class="pm-contact"><i class="bi bi-envelope"></i> @co.ContactEmail</a>
+                }
+                @if (!string.IsNullOrWhiteSpace(co.ContactPhone))
+                {
+                    <a href="tel:@co.ContactPhone" class="pm-contact"><i class="bi bi-telephone"></i> @co.ContactPhone</a>
+                }
+            </div>
+        </div>
+        <div class="info-banner mt-3 mb-0">
+            <i class="bi bi-envelope-fill"></i>
+            @if (ViewBag.EmailConfigured == true)
+            {
+                <text>The company is emailed the job details automatically when you escalate a complaint to them.</text>
+            }
+            else
+            {
+                <text>Email is not set up on the server yet, so contact the company yourself when you escalate a complaint.</text>
+            }
+        </div>
+    }
+</div>
+
+<!-- Reassigned Complaints -->
+<div class="rf-panel">
+    <div class="rf-panel-header">
+        <h2>Escalated to the company</h2>
+        <span class="rf-badge status-unknown">@Model.ReassignedComplaints.Count total</span>
+    </div>
+    @if (Model.ReassignedComplaints.Count == 0)
+    {
+        <div class="empty-state">
+            <i class="bi bi-building"></i>
+            <p>No complaints have been escalated to the external company yet.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table rf-table align-middle mb-0 pm-stack">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Student</th>
+                        <th>Room</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                        <th>Escalated On</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.ReassignedComplaints)
+                    {
+                        var c = row.Complaint;
+                        <tr class="@(row.IsEmergency ? "row-emergency" : "")">
+                            <td>
+                                <a asp-controller="Manager" asp-action="ComplaintDetail" asp-route-id="@c.ComplaintId"
+                                   class="tbl-action-link">@DisplayHelper.JobCode(c.ComplaintId)</a>
+                            </td>
+                            <td class="fw-medium">@row.StudentName</td>
+                            <td>@c.RoomNumber</td>
+                            <td>@row.CategoryName</td>
+                            <td><span class="rf-badge @DisplayHelper.StatusCss(c.StatusId)">@row.StatusName</span></td>
+                            <td class="text-muted small">@(((DateTime?)c.AssignedAt).ToSaTime("dd MMM yyyy HH:mm"))</td>
+                            <td>
+                                <a asp-controller="Manager" asp-action="ComplaintDetail" asp-route-id="@c.ComplaintId"
+                                   class="tbl-action-link">View &rsaquo;</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<!-- Edit dialog -->
+<div class="modal fade pm-modal" id="editCompanyModal" tabindex="-1" aria-labelledby="editCompanyTitle" aria-hidden="true" @(ViewData.ModelState.IsValid ? "" : "data-auto-open")>
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+        <form asp-action="ExternalCompany" method="post" class="modal-content" novalidate>
+            @Html.AntiForgeryToken()
+            <div class="modal-header pm-modal-head">
+                <span class="pm-modal-icon"><i class="bi bi-building"></i></span>
+                <div class="pm-modal-titles">
+                    <h2 class="modal-title" id="editCompanyTitle">Company details</h2>
+                    <p>The contractor you escalate complaints to.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label asp-for="Company.CompanyName" class="form-label"></label>
+                        <input asp-for="Company.CompanyName" class="form-control" autocomplete="off" />
+                        <span asp-validation-for="Company.CompanyName" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Company.ContactEmail" class="form-label"></label>
+                        <input asp-for="Company.ContactEmail" class="form-control" autocomplete="off" inputmode="email" />
+                        <span asp-validation-for="Company.ContactEmail" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Company.ContactPhone" class="form-label"></label>
+                        <input asp-for="Company.ContactPhone" class="form-control" autocomplete="off" inputmode="tel" />
+                        <span asp-validation-for="Company.ContactPhone" class="text-danger small"></span>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Company.ApiEndpoint" class="form-label"></label>
+                        <input asp-for="Company.ApiEndpoint" class="form-control" placeholder="https://api.company.co.za (optional)" autocomplete="off" />
+                        <span asp-validation-for="Company.ApiEndpoint" class="text-danger small"></span>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input asp-for="Company.IsActive" class="form-check-input" role="switch" />
+                            <label asp-for="Company.IsActive" class="form-check-label">Active (receives escalated complaints)</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer pm-modal-foot">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-rf-primary"><i class="bi bi-check-lg"></i> Save changes</button>
+            </div>
+        </form>
+    </div>
+</div>

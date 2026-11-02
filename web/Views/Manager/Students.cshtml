@@ -1,0 +1,174 @@
+@model List<StudentRow>
+@{
+    ViewData["Title"] = "Student Management";
+    ViewData["CustomHeader"] = true;
+    var search = ViewData["Search"]?.ToString();
+    var regStatus = ViewData["RegStatus"]?.ToString() ?? "all";
+    var registered = Model.Count(s => s.IsRegistered && s.AccountStatus == "active");
+    int removedCount = ViewBag.RemovedCount is int rc ? rc : 0;
+    int suspendedCount = ViewBag.SuspendedCount is int sc ? sc : 0;
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title mb-1">Students</h1>
+        <p class="page-subtitle">Students added here can use First Login in the mobile app to set a password.</p>
+    </div>
+    <button type="button" class="btn btn-rf-primary btn-sm ms-auto" data-bs-toggle="modal" data-bs-target="#addStudentModal"><i class="bi bi-plus-lg"></i> Add student</button>
+</div>
+
+<div class="pm-chips mb-3">
+    <span class="pm-chip"><strong>@Model.Count</strong> shown</span>
+    <span class="pm-chip pm-chip-green"><strong>@registered</strong> registered</span>
+    <span class="pm-chip pm-chip-blue"><strong>@(Model.Count(m => m.AccountStatus == "active") - registered)</strong> pending</span>
+    @if (suspendedCount > 0)
+    {
+        <a class="pm-chip" asp-action="Students" asp-route-regStatus="suspended"><strong>@suspendedCount</strong> suspended</a>
+    }
+    @if (removedCount > 0)
+    {
+        <a class="pm-chip" asp-action="Students" asp-route-regStatus="removed"><strong>@removedCount</strong> removed</a>
+    }
+</div>
+
+<div class="rf-panel">
+    <div class="p-3 border-bottom">
+        <form method="get" asp-action="Students" class="d-flex gap-3 flex-wrap align-items-end">
+            <div class="flex-grow-1" style="min-width:220px;">
+                <label class="form-label mb-1 small fw-semibold text-muted">Search</label>
+                <div class="complaint-search-bar">
+                    <i class="bi bi-search"></i>
+                    <input type="text" name="search" class="form-control form-control-sm"
+                           placeholder="Name or student number" value="@search" />
+                </div>
+            </div>
+            <div>
+                <label class="form-label mb-1 small fw-semibold text-muted">Status</label>
+                <select name="regStatus" class="form-select form-select-sm" style="min-width:130px;" data-autosubmit>
+                    <option value="all" selected="@(regStatus == "all")">All</option>
+                    <option value="registered" selected="@(regStatus == "registered")">Registered</option>
+                    <option value="pending" selected="@(regStatus == "pending")">Pending</option>
+                    <option value="suspended" selected="@(regStatus == "suspended")">Suspended</option>
+                    <option value="removed" selected="@(regStatus == "removed")">Removed</option>
+                </select>
+            </div>
+            <div>
+                <button type="submit" class="btn btn-outline-secondary btn-sm d-block">Search</button>
+            </div>
+        </form>
+    </div>
+
+    @if (Model.Count == 0)
+    {
+        <div class="empty-state">
+            <i class="bi bi-mortarboard"></i>
+            <p>No students found. <button type="button" class="btn btn-link p-0 align-baseline text-rf-green" data-bs-toggle="modal" data-bs-target="#addStudentModal">Add a student</button> so they can use the mobile app.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table rf-table align-middle mb-0 pm-stack">
+                <thead>
+                    <tr><th>Student</th><th>Student number</th><th>Room</th><th>Cellphone</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in Model)
+                    {
+                        <tr>
+                            <td data-label="Student">
+                                <div class="pm-person">
+                                    <span class="avatar pm-avatar">@DisplayHelper.Initials(s.FullName)</span>
+                                    <span><span class="fw-semibold d-block">@s.FullName</span>@if (!string.IsNullOrWhiteSpace(s.Email)) { <span class="small text-muted d-block">@s.Email</span> } else { <span class="small text-muted d-block">No email saved</span> }</span>
+                                </div>
+                            </td>
+                            <td data-label="Student number">@s.StudentNumber</td>
+                            <td data-label="Room">@s.RoomNumber</td>
+                            <td data-label="Cellphone">@s.Cellphone</td>
+                            <td data-label="Status">
+                                @if (s.AccountStatus == "suspended")
+                                {
+                                    <span class="rf-badge status-progress" title="@s.StatusReason">Suspended</span>
+                                }
+                                else if (s.AccountStatus == "removed")
+                                {
+                                    <span class="rf-badge status-rejected" title="@s.StatusReason">Removed</span>
+                                }
+                                else if (s.IsRegistered)
+                                {
+                                    <span class="rf-badge status-resolved">Registered</span>
+                                }
+                                else
+                                {
+                                    <span class="rf-badge status-submitted">Pending first login</span>
+                                }
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-student-edit="@s.StudentId" data-student-name="@s.FullName" data-student-email="@s.Email" data-student-room="@s.RoomNumber" data-student-phone="@s.Cellphone" data-student-registered="@(s.IsRegistered ? "1" : "0")"><i class="bi bi-pencil"></i> Edit</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-access data-kind="student" data-id="@s.StudentId" data-name="@s.FullName" data-status="@s.AccountStatus"><i class="bi bi-shield-lock"></i> Access</button>
+                                @if (s.AccountStatus == "active")
+                                {
+                                <form asp-action="RevokeStudentAccess" method="post" class="d-inline" data-confirm="Revoke @s.FullName's access? They are signed out, any code or link already sent stops working, and the saved email is removed. They start again with First Login.">
+                                    <input type="hidden" name="studentId" value="@s.StudentId" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-slash-circle"></i> Revoke</button>
+                                </form>
+                                }
+                                @if (!s.IsRegistered && s.AccountStatus == "active")
+                                {
+                                    <form asp-action="SendStudentInvite" method="post" class="d-inline" data-confirm="Send @s.FullName an SMS invite with the app address and First Login steps?">
+                                        <input type="hidden" name="studentId" value="@s.StudentId" />
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-send"></i> Send invite</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<partial name="_AccessModal" />
+<partial name="_AddStudentModal" model="(AddStudentViewModel)(ViewBag.AddStudentModel ?? new AddStudentViewModel())" />
+
+<div class="modal fade pm-modal" id="editStudentModal" tabindex="-1" aria-labelledby="editStudentTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+        <form asp-action="EditStudent" method="post" class="modal-content" novalidate>
+            <input type="hidden" name="studentId" id="editStudentId" />
+            <div class="modal-header pm-modal-head">
+                <span class="pm-modal-icon"><i class="bi bi-pencil-square"></i></span>
+                <div class="pm-modal-titles">
+                    <h2 class="modal-title" id="editStudentTitle">Edit student</h2>
+                    <p id="editStudentName">Fix a mistake in the details you entered.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label for="editStudentFullName" class="form-label">Full name</label>
+                        <input name="fullName" id="editStudentFullName" class="form-control" maxlength="120" autocomplete="off" required />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="editStudentRoom" class="form-label">Room number</label>
+                        <input name="roomNumber" id="editStudentRoom" class="form-control" maxlength="20" autocomplete="off" required />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="editStudentPhone" class="form-label">Cellphone number</label>
+                        <input name="cellphone" id="editStudentPhone" class="form-control" inputmode="tel" autocomplete="off" required />
+                    </div>
+                    <div class="col-12">
+                        <label for="editStudentEmail" class="form-label">Email address</label>
+                        <input type="email" name="email" id="editStudentEmail" class="form-control" maxlength="120" placeholder="name@example.com" autocomplete="off" inputmode="email" />
+                        <div class="form-hint mt-1">Leave it empty to remove the saved address. The student number cannot be changed.</div>
+                    </div>
+                </div>
+                <div class="form-check mt-3 d-none" id="editStudentCancelRow">
+                    <input class="form-check-input" type="checkbox" name="cancelSignup" id="editStudentCancel" value="true" />
+                    <label class="form-check-label" for="editStudentCancel">Cancel the existing sign-up. Use this if someone else set the account up with the wrong email. They are signed out and the real student uses First Login again.</label>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

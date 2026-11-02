@@ -1,0 +1,48 @@
+@{
+    ViewData["Title"] = "Privacy policy";
+    Layout = "_PublicLayout";
+}
+<article class="public-card">
+    <h1>Privacy policy</h1>
+    <p class="public-lead">ITS ResFix is a maintenance system for a student residence. Students report problems with their rooms, and the residence manager and maintenance workers follow them up. This page explains what information the system keeps and how it is used.</p>
+    <p class="public-meta">Last updated: 28 October 2026</p>
+
+    <h2>What we keep</h2>
+    <ul>
+        <li><strong>Students:</strong> full name, student number, room number and cellphone number, plus the maintenance requests they submit (description, category, an optional photo, status and any messages exchanged with staff).</li>
+        <li><strong>Staff (managers and workers):</strong> full name, email address, cellphone number, role and the jobs assigned to them. Passwords are stored only as a one-way hash, never in readable form.</li>
+        <li><strong>Technical data:</strong> sign-in and security logs, used to keep the system safe (for example to limit repeated failed sign-ins).</li>
+    </ul>
+
+    <h2>Why we use it</h2>
+    <ul>
+        <li>To receive maintenance requests, assign them to the right worker, track the 48-hour response time and tell the student how their request is going.</li>
+        <li>To send notifications: in the app, by SMS and by email (for example a one-time code, a password reset link, or a welcome message to a new worker).</li>
+        <li>To check that a request is a genuine maintenance issue (see "Who processes it" below).</li>
+        <li>To keep the residence's records and produce summary reports for the manager.</li>
+    </ul>
+
+    <h2>Who processes it</h2>
+    <p>The residence manager runs the system. To provide it, some information is handled by these services, only for the purpose described:</p>
+    <ul>
+        <li><strong>Supabase</strong> stores the database.</li>
+        <li><strong>Cloudinary</strong> stores photos that students attach to a request.</li>
+        <li><strong>OpenRouter</strong> (an AI service) reads the text and photo of a request to decide whether it is a real maintenance issue and which category it belongs to.</li>
+        <li><strong>BulkSMS</strong> delivers text messages.</li>
+        <li><strong>Google (Gmail)</strong> delivers email. The system signs in to one Gmail account with the single permission "send email on your behalf". It cannot read, search or delete any email in that account, and it does not access contacts or any other Google data.</li>
+        <li><strong>Render</strong> hosts the website.</li>
+    </ul>
+    <p>We do not sell personal information and we do not use it for advertising.</p>
+
+    <h2>How long we keep it</h2>
+    <p>Records are kept for as long as the student lives in the residence or the staff member works there, and for a reasonable period afterwards for record keeping. The manager can remove an account and its records on request.</p>
+
+    <h2>Your rights</h2>
+    <p>You can ask to see the information we hold about you, to have it corrected, or to have it deleted, as provided for in the Protection of Personal Information Act (POPIA). Students can ask the residence manager. Staff can ask the residence manager too.</p>
+
+    <h2>Security</h2>
+    <p>The site is served over an encrypted connection, access is limited by role, passwords are hashed, repeated failed sign-ins are blocked, and uploaded photos are checked before they are stored.</p>
+
+    <h2>Contact</h2>
+    <p>Questions or requests about your information: the residence manager, <a href="mailto:cbonelonkosikhona@gmail.com">cbonelonkosikhona@gmail.com</a>.</p>
+</article>

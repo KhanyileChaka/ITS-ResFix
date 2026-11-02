@@ -1,0 +1,63 @@
+@model ExpiredComplaintsViewModel
+@{
+    ViewData["Title"] = "Expired Complaints – Action Required";
+    ViewData["CustomHeader"] = true;
+}
+
+<h1 class="page-title">Expired Complaints – Action Required</h1>
+
+@if (Model.Complaints.Count > 0)
+{
+    <div class="alert alert-danger d-flex align-items-center gap-2 mb-3">
+        <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+        <span>The following complaints have passed the 48-hour deadline.</span>
+    </div>
+}
+
+<div class="rf-panel mb-3">
+    @if (Model.Complaints.Count == 0)
+    {
+        <div class="empty-state">
+            <i class="bi bi-emoji-smile"></i>
+            <p>No expired complaints. Everything is within its deadline.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table rf-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Room</th>
+                        <th>Assigned To</th>
+                        <th>Deadline</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Complaints)
+                    {
+                        var c = row.Complaint;
+                        <tr>
+                            <td class="fw-semibold">@DisplayHelper.JobCode(c.ComplaintId)</td>
+                            <td>@c.RoomNumber</td>
+                            <td>@(row.WorkerName ?? "Unassigned")</td>
+                            <td>@c.Deadline.ToSaTime("dd MMM HH:mm")</td>
+                            <td><span class="rf-badge timer-expired">EXPIRED</span></td>
+                            <td>
+                                <a asp-action="Reassign" asp-route-id="@c.ComplaintId" class="tbl-action-link">
+                                    Reassign &rsaquo;
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="p-3 border-top small text-muted">
+            Manager intervention is required. Reassign the complaint to an available internal worker or the external company.
+        </div>
+    }
+</div>

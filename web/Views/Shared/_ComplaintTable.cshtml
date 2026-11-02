@@ -1,0 +1,68 @@
+@model List<ComplaintRow>
+@* Shared complaints table — manager dashboard and complaints list. *@
+@if (Model.Count == 0)
+{
+    <div class="empty-state">
+        <i class="bi bi-inbox"></i>
+        <p>No complaints to show.</p>
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table rf-table align-middle mb-0 pm-stack">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Student</th>
+                    <th>Room</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th>Timer</th>
+                    <th>Assigned To</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model)
+                {
+                    var c = row.Complaint;
+                    var isExpired = row.Timer.IsExpired;
+                    <tr class="@(row.IsEmergency ? "row-emergency" : "")">
+                        <td data-label="Job">
+                            <a asp-controller="Manager" asp-action="ComplaintDetail" asp-route-id="@c.ComplaintId"
+                               class="tbl-action-link">@DisplayHelper.JobCode(c.ComplaintId)</a>
+                        </td>
+                        <td class="fw-medium" data-label="Student">@row.StudentName</td>
+                        <td data-label="Room">@c.RoomNumber</td>
+                        <td data-label="Category">@row.CategoryName</td>
+                        <td data-label="Status"><span class="rf-badge @DisplayHelper.StatusCss(c.StatusId)">@row.StatusName</span>@if (row.AppealPending) { <span class="rf-pill rf-pill-appeal">APPEAL</span> }@if (row.AwaitingReply) { <span class="rf-pill rf-pill-reply">REPLY</span> }</td>
+                        <td data-label="Timer"><partial name="_TimerBadge" model="row" /></td>
+                        <td data-label="Assigned to">
+                            @if (row.WorkerName is not null)
+                            {
+                                @row.WorkerName
+                            }
+                            else
+                            {
+                                <span class="text-muted">Unassigned</span>
+                            }
+                        </td>
+                        <td>
+                            @if (isExpired)
+                            {
+                                <a asp-controller="Manager" asp-action="Reassign" asp-route-id="@c.ComplaintId"
+                                   class="reassign-link">Reassign &rsaquo;</a>
+                            }
+                            else
+                            {
+                                <a asp-controller="Manager" asp-action="ComplaintDetail" asp-route-id="@c.ComplaintId"
+                                   class="tbl-action-link">View &rsaquo;</a>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

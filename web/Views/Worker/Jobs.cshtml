@@ -1,0 +1,85 @@
+@model WorkerJobsViewModel
+@{
+    ViewData["Title"] = "My Assigned Jobs";
+    ViewData["CustomHeader"] = true;
+    var all = Model.AllJobs;
+    var tabs = new (string Key, string Label, int Count)[]
+    {
+        ("all", "All", all.Count),
+        ("new", "New", all.Count(j => j.Complaint.StatusId == StatusIds.Submitted)),
+        ("inprogress", "In progress", all.Count(j => j.Complaint.StatusId == StatusIds.InProgress)),
+        ("urgent", "Urgent", all.Count(j => j.Complaint.StatusId != StatusIds.Resolved && (j.IsEmergency || j.Timer.IsExpired))),
+        ("done", "Completed", all.Count(j => j.Complaint.StatusId == StatusIds.Resolved))
+    };
+}
+<div class="page-header">
+    <div>
+        <h1 class="page-title mb-1">My Assigned Jobs</h1>
+        <p class="page-subtitle">Open jobs come first, with emergencies and the nearest deadlines at the top.</p>
+    </div>
+</div>
+
+<form method="get" asp-action="Jobs" class="wj-bar">
+    <input type="hidden" name="filter" value="@Model.Filter" />
+    <div class="wj-search">
+        <i class="bi bi-search"></i>
+        <input type="search" name="q" value="@Model.Query" maxlength="60" class="form-control" placeholder="Search by job number, room, category or description" aria-label="Search jobs" />
+    </div>
+    <button type="submit" class="btn btn-rf-navy">Search</button>
+    @if (!string.IsNullOrEmpty(Model.Query))
+    {
+        <a asp-action="Jobs" asp-route-filter="@Model.Filter" class="btn btn-outline-secondary">Clear</a>
+    }
+</form>
+
+<div class="wj-tabs">
+    @foreach (var t in tabs)
+    {
+        <a asp-action="Jobs" asp-route-filter="@t.Key" asp-route-q="@Model.Query" class="wj-tab @(Model.Filter == t.Key ? "active" : "")">
+            @t.Label <span>@t.Count</span>
+        </a>
+    }
+</div>
+
+@if (Model.Jobs.Count == 0)
+{
+    <div class="rf-card">
+        <div class="empty-state">
+            <i class="bi bi-@(all.Count == 0 ? "cup-hot" : "search")"></i>
+            <p>@(all.Count == 0 ? "No jobs are assigned to you right now." : "No jobs match this view.")</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="rf-card mb-3">
+        <div class="table-responsive">
+            <table class="table rf-table align-middle mb-0 wj-table">
+                <thead>
+                    <tr><th>ID</th><th>Room</th><th>Category</th><th>Status</th><th>Visit</th><th>Deadline</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Jobs)
+                    {
+                        var c = row.Complaint;
+                        <tr>
+                            <td data-label="Job">
+                                <a asp-action="Job" asp-route-id="@c.ComplaintId" class="job-link">@DisplayHelper.JobCode(c.ComplaintId)</a>
+                                @if (row.IsEmergency && c.StatusId != StatusIds.Resolved)
+                                {
+                                    <i class="bi bi-exclamation-octagon-fill text-danger ms-1" title="Emergency"></i>
+                                }
+                            </td>
+                            <td data-label="Room">@c.RoomNumber</td>
+                            <td data-label="Category">@row.CategoryName</td>
+                            <td data-label="Status"><span class="rf-badge @DisplayHelper.StatusCss(c.StatusId)">@DisplayHelper.WorkerStatusLabel(c.StatusId)</span></td>
+                            <td data-label="Visit">@(c.ScheduledVisitAt is not null && c.StatusId != StatusIds.Resolved ? c.ScheduledVisitAt.ToSaTime("ddd d MMM, HH:mm") : "-")</td>
+                            <td data-label="Deadline"><partial name="_JobTimer" model="row" /></td>
+                            <td class="text-end"><a asp-action="Job" asp-route-id="@c.ComplaintId" class="btn btn-rf-navy btn-view">View</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

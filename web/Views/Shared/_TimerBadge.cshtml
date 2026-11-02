@@ -1,0 +1,6 @@
+@model ComplaintRow
+@* data-deadline lets site.js keep the countdown live without a page refresh. *@
+<span class="timer-badge @Model.Timer.CssClass"
+      data-deadline="@(Model.Complaint.StatusId == StatusIds.Resolved ? "" : Model.Complaint.Deadline.ToIsoUtc())">
+    <i class="bi bi-stopwatch"></i> <span class="timer-text">@Model.Timer.Label</span>
+</span>

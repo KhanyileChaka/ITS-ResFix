@@ -1,0 +1,156 @@
+@model ReportsViewModel
+@{
+    ViewData["Title"] = "Reports";
+    ViewData["CustomHeader"] = true;
+    var ranges = new (int Days, string Label)[] { (7, "7 days"), (30, "30 days"), (90, "90 days"), (0, "All time") };
+    var rangeLabel = Model.Range == 0 ? "all time" : $"the last {Model.Range} days";
+    var trendPeak = Math.Max(1, Model.Trend.Select(t => t.Count).DefaultIfEmpty(0).Max());
+    var catPeak = Math.Max(1, Model.ByCategory.Select(c => c.Count).DefaultIfEmpty(0).Max());
+    var roomPeak = Math.Max(1, Model.Rooms.Select(c => c.Count).DefaultIfEmpty(0).Max());
+    var assigned = Model.AutoAssigned + Model.ManualAssigned;
+    string Hours(double? h) => h is null ? "-" : h.Value < 1 ? "<1 h" : h.Value < 48 ? $"{Math.Round(h.Value)} h" : $"{Math.Round(h.Value / 24, 1)} days";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title mb-1">Reports</h1>
+        <p class="page-subtitle">How the residence is doing over @rangeLabel. Rejected requests are not counted in the totals.</p>
+    </div>
+    <div class="ms-auto d-flex gap-2 flex-wrap">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-print><i class="bi bi-printer"></i> Print</button>
+        <a asp-action="ExportComplaints" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> Export all complaints</a>
+    </div>
+</div>
+
+<div class="wj-tabs">
+    @foreach (var r in ranges)
+    {
+        <a asp-action="Reports" asp-route-range="@r.Days" class="wj-tab @(Model.Range == r.Days ? "active" : "")">@r.Label</a>
+    }
+</div>
+
+@if (Model.Total == 0 && Model.Rejected == 0)
+{
+    <div class="rf-card">
+        <div class="empty-state">
+            <i class="bi bi-bar-chart-line"></i>
+            <p>No complaints in this period yet. Reports fill in as students submit requests.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-xl-3"><div class="wd-stat wd-blue"><span class="wd-stat-icon"><i class="bi bi-clipboard-data"></i></span><div><div class="wd-stat-value">@Model.Total</div><div class="wd-stat-label">Complaints</div></div></div></div>
+        <div class="col-6 col-xl-3"><div class="wd-stat wd-green"><span class="wd-stat-icon"><i class="bi bi-check2-circle"></i></span><div><div class="wd-stat-value">@(Model.ResolutionRate is null ? "-" : Model.ResolutionRate + "%")</div><div class="wd-stat-label">Resolved (@Model.Resolved of @Model.Total)</div></div></div></div>
+        <div class="col-6 col-xl-3"><div class="wd-stat wd-amber"><span class="wd-stat-icon"><i class="bi bi-stopwatch"></i></span><div><div class="wd-stat-value">@(Model.OnTimeRate is null ? "-" : Model.OnTimeRate + "%")</div><div class="wd-stat-label">Resolved on time</div></div></div></div>
+        <div class="col-6 col-xl-3"><div class="wd-stat wd-red"><span class="wd-stat-icon"><i class="bi bi-hourglass-split"></i></span><div><div class="wd-stat-value">@Hours(Model.AvgHours)</div><div class="wd-stat-label">Average time to resolve</div></div></div></div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-xl-3"><div class="rp-mini"><span>Still open</span><strong>@Model.Open</strong></div></div>
+        <div class="col-6 col-xl-3"><div class="rp-mini"><span>Overdue now</span><strong class="@(Model.Overdue > 0 ? "text-danger" : "")">@Model.Overdue</strong></div></div>
+        <div class="col-6 col-xl-3"><div class="rp-mini"><span>Emergencies</span><strong>@Model.Emergencies</strong></div></div>
+        <div class="col-6 col-xl-3"><div class="rp-mini"><span>Student rating</span><strong>@(Model.AvgRating is null ? "-" : Model.AvgRating.Value.ToString("0.0") + " / 5")</strong><em>@Model.RatingCount rating@(Model.RatingCount == 1 ? "" : "s")</em></div></div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-7">
+            <div class="wd-section-head"><h2>New complaints per @Model.TrendUnit</h2></div>
+            <div class="wd-perf">
+                <div class="wd-bars rp-bars" aria-label="New complaints per @Model.TrendUnit">
+                    @{ var labelEvery = Model.Trend.Count <= 10 ? 1 : (int)Math.Ceiling(Model.Trend.Count / 6.0); }
+                    @for (var i = 0; i < Model.Trend.Count; i++)
+                    {
+                        var t = Model.Trend[i];
+                        <div class="wd-bar-col" title="@t.Label: @t.Count">
+                            <div class="rp-bar-val">@(t.Count > 0 ? t.Count.ToString() : "")</div>
+                            <div class="wd-bar-track"><div class="wd-bar @(t.Count == 0 ? "wd-bar-zero" : "")" style="height:@(t.Count == 0 ? 4 : 10 + 90 * t.Count / trendPeak)%"></div></div>
+                            <div class="rp-bar-label">@((Model.Trend.Count - 1 - i) % labelEvery == 0 ? t.Label : "")</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="wd-section-head"><h2>By category</h2></div>
+            <div class="wd-perf rp-list">
+                @if (Model.ByCategory.Count == 0)
+                {
+                    <div class="text-muted small">No data.</div>
+                }
+                @foreach (var c in Model.ByCategory)
+                {
+                    <div class="rp-row">
+                        <div class="rp-row-top"><span>@c.Label</span><strong>@c.Count</strong></div>
+                        <div class="rp-track"><div class="rp-fill" style="width:@(100 * c.Count / catPeak)%"><div class="rp-fill-done" style="width:@(c.Count == 0 ? 0 : 100 * c.Done / c.Count)%"></div></div></div>
+                        <div class="rp-row-sub">@c.Done resolved</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="wd-section-head"><h2>Worker performance</h2></div>
+    <div class="rf-card mb-4">
+        @if (Model.Workers.Count == 0)
+        {
+            <div class="empty-state"><i class="bi bi-people"></i><p>No workers yet.</p></div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table rf-table align-middle mb-0 pm-stack">
+                    <thead><tr><th>Worker</th><th>Assigned</th><th>Completed</th><th>On time</th><th>Avg. time to finish</th><th>Rating</th></tr></thead>
+                    <tbody>
+                        @foreach (var w in Model.Workers)
+                        {
+                            <tr>
+                                <td data-label="Worker"><div class="pm-person"><span class="avatar pm-avatar">@DisplayHelper.Initials(w.Name)</span><span class="fw-semibold">@w.Name</span></div></td>
+                                <td data-label="Assigned">@w.Assigned</td>
+                                <td data-label="Completed">@w.Completed</td>
+                                <td data-label="On time">@(w.OnTimeRate is null ? "-" : w.OnTimeRate + "%")</td>
+                                <td data-label="Avg. time">@Hours(w.AvgHours)</td>
+                                <td data-label="Rating">@(w.AvgRating is null ? "-" : w.AvgRating.Value.ToString("0.0"))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="wd-section-head"><h2>Rooms with most requests</h2></div>
+            <div class="wd-perf rp-list">
+                @if (Model.Rooms.Count == 0) { <div class="text-muted small">No data.</div> }
+                @foreach (var r in Model.Rooms)
+                {
+                    <div class="rp-row">
+                        <div class="rp-row-top"><span>Room @r.Label</span><strong>@r.Count</strong></div>
+                        <div class="rp-track"><div class="rp-fill" style="width:@(100 * r.Count / roomPeak)%"></div></div>
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="wd-section-head"><h2>AI review</h2></div>
+            <div class="wd-perf rp-facts">
+                <div><span>Rejected as not a real issue</span><strong>@Model.AiRejected</strong></div>
+                <div><span>Category corrected by AI</span><strong>@Model.AiRecategorised</strong></div>
+                <div><span>Appeals pending</span><strong>@Model.AppealsPending</strong></div>
+                <div><span>Appeals approved</span><strong>@Model.AppealsApproved</strong></div>
+                <div><span>Appeals declined</span><strong>@Model.AppealsDeclined</strong></div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="wd-section-head"><h2>How jobs were assigned</h2></div>
+            <div class="wd-perf rp-facts">
+                <div><span>Automatically by rule</span><strong>@Model.AutoAssigned</strong></div>
+                <div><span>Manually by a manager</span><strong>@Model.ManualAssigned</strong></div>
+                <div><span>Share automatic</span><strong>@(assigned == 0 ? "-" : (100 * Model.AutoAssigned / assigned) + "%")</strong></div>
+            </div>
+        </div>
+    </div>
+}

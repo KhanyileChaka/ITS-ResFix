@@ -1,0 +1,62 @@
+@model AddWorkerViewModel
+@{
+    var specialisations = (ViewBag.Specialisations as List<string>) ?? new List<string>();
+    var open = ViewBag.OpenAdd == true;
+}
+<div class="modal fade pm-modal" id="addWorkerModal" tabindex="-1" aria-labelledby="addWorkerTitle" aria-hidden="true" @(open ? "data-auto-open" : "")>
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+        <form asp-controller="Manager" asp-action="AddWorker" method="post" class="modal-content" novalidate>
+            <div class="modal-header pm-modal-head">
+                <span class="pm-modal-icon"><i class="bi bi-person-plus"></i></span>
+                <div class="pm-modal-titles">
+                    <h2 class="modal-title" id="addWorkerTitle">Add a worker</h2>
+                    <p>They get a welcome email and SMS, and choose their own password.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                @if (ViewData.ModelState[string.Empty]?.Errors.Count > 0)
+                {
+                    <div class="auth-alert auth-alert-bad mb-3" role="alert"><i class="bi bi-exclamation-circle-fill"></i><span>@ViewData.ModelState[string.Empty]!.Errors[0].ErrorMessage</span></div>
+                }
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label asp-for="FullName" class="form-label"></label>
+                        <input asp-for="FullName" class="form-control" placeholder="Enter full name" autocomplete="off" />
+                        <span asp-validation-for="FullName" class="text-danger small"></span>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Email" class="form-label"></label>
+                        <input asp-for="Email" class="form-control" placeholder="name@example.com" autocomplete="off" inputmode="email" />
+                        <div class="form-hint mt-1">This is what they sign in with, and where the welcome email goes.</div>
+                        <span asp-validation-for="Email" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Specialisation" class="form-label"></label>
+                        <select asp-for="Specialisation" class="form-select">
+                            <option value="">General maintenance</option>
+                            @foreach (var s in specialisations)
+                            {
+                                <option value="@s" selected="@(Model.Specialisation == s)">@s</option>
+                            }
+                        </select>
+                        <span asp-validation-for="Specialisation" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Phone" class="form-label"></label>
+                        <input asp-for="Phone" class="form-control" placeholder="e.g. 082 123 4567" inputmode="tel" autocomplete="off" />
+                        <span asp-validation-for="Phone" class="text-danger small"></span>
+                    </div>
+                </div>
+                <div class="info-banner mt-3 mb-0">
+                    <i class="bi bi-info-circle-fill"></i>
+                    A one-time password is shown to you once after saving, in case you need to pass it on yourself.
+                </div>
+            </div>
+            <div class="modal-footer pm-modal-foot">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-rf-primary"><i class="bi bi-check-lg"></i> Save worker</button>
+            </div>
+        </form>
+    </div>
+</div>

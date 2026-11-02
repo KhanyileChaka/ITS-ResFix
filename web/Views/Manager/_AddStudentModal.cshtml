@@ -1,0 +1,57 @@
+@model AddStudentViewModel
+@{
+    var open = ViewBag.OpenAdd == true;
+}
+<div class="modal fade pm-modal" id="addStudentModal" tabindex="-1" aria-labelledby="addStudentTitle" aria-hidden="true" @(open ? "data-auto-open" : "")>
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+        <form asp-controller="Manager" asp-action="AddStudent" method="post" class="modal-content" novalidate>
+            <div class="modal-header pm-modal-head">
+                <span class="pm-modal-icon"><i class="bi bi-mortarboard"></i></span>
+                <div class="pm-modal-titles">
+                    <h2 class="modal-title" id="addStudentTitle">Add a student</h2>
+                    <p>They activate their account with First Login in the mobile app.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                @if (ViewData.ModelState[string.Empty]?.Errors.Count > 0)
+                {
+                    <div class="auth-alert auth-alert-bad mb-3" role="alert"><i class="bi bi-exclamation-circle-fill"></i><span>@ViewData.ModelState[string.Empty]!.Errors[0].ErrorMessage</span></div>
+                }
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label asp-for="FullName" class="form-label"></label>
+                        <input asp-for="FullName" class="form-control" placeholder="Enter full name" autocomplete="off" />
+                        <span asp-validation-for="FullName" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="StudentNumber" class="form-label"></label>
+                        <input asp-for="StudentNumber" class="form-control" placeholder="6 to 12 digits" autocomplete="off" inputmode="numeric" />
+                        <span asp-validation-for="StudentNumber" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="RoomNumber" class="form-label"></label>
+                        <input asp-for="RoomNumber" class="form-control" placeholder="e.g. G4" autocomplete="off" />
+                        <span asp-validation-for="RoomNumber" class="text-danger small"></span>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Cellphone" class="form-label"></label>
+                        <input asp-for="Cellphone" class="form-control" placeholder="e.g. 071 234 5678" inputmode="tel" autocomplete="off" />
+                        <div class="form-hint mt-1">The student uses this number for First Login and the SMS verification code.</div>
+                        <span asp-validation-for="Cellphone" class="text-danger small"></span>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Email" class="form-label"></label>
+                        <input asp-for="Email" class="form-control" placeholder="name@example.com" inputmode="email" autocomplete="off" />
+                        <div class="form-hint mt-1">If you add one, an invite email with the first-login steps is sent as soon as you save.</div>
+                        <span asp-validation-for="Email" class="text-danger small"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer pm-modal-foot">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-rf-primary"><i class="bi bi-check-lg"></i> Save student</button>
+            </div>
+        </form>
+    </div>
+</div>
