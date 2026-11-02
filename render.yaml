@@ -1,0 +1,91 @@
+# Render blueprint for the ITS ResFix web server (manager + worker site and the student API).
+# Every value marked "sync: false" is typed into the Render dashboard (Environment tab) and is never stored in this repo.
+# The same keys you keep in `dotnet user-secrets` locally use "__" instead of ":" on Render (Supabase:Url -> Supabase__Url).
+services:
+  - type: web
+    name: itsresfix-web
+    runtime: docker
+    plan: free               # free: the service sleeps after 15 minutes without a visit and wakes on the next one (about a minute)
+    dockerfilePath: ./web/Dockerfile
+    dockerContext: ./web
+    healthCheckPath: /healthz
+    autoDeploy: false
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: Hosting__BehindProxy
+        value: "true"
+      - key: Hosting__PublicUrl   # the https address of this web service; password reset links in SMS point here
+        value: https://itsdance.co.za
+      - key: Hosting__StudentAppUrl   # the student app address written in invite SMS messages
+        value: https://student.itsdance.co.za
+      - key: Cors__Origins   # the addresses the student app is served from (they may call this server); the Render address stays until the domain is confirmed
+        value: https://student.itsdance.co.za,https://itsresfix-app.onrender.com
+      - key: Supabase__Url
+        sync: false
+      - key: Supabase__ServiceRoleKey
+        sync: false
+      - key: Student__JwtKey
+        sync: false
+      - key: OpenRouter__ApiKey
+        sync: false
+      - key: OpenRouter__Model
+        value: google/gemini-2.5-flash
+      - key: Cloudinary__CloudName
+        sync: false
+      - key: Cloudinary__ApiKey
+        sync: false
+      - key: Cloudinary__ApiSecret
+        sync: false
+      - key: Push__PublicKey
+        sync: false
+      - key: Push__PrivateKey
+        sync: false
+      - key: Push__Subject
+        sync: false
+      - key: Gmail__ClientId       # email is sent through the Gmail API over https (Render's free plan blocks SMTP); see tools/get-gmail-token.ps1
+        sync: false
+      - key: Gmail__ClientSecret
+        sync: false
+      - key: Gmail__RefreshToken
+        sync: false
+      - key: Gmail__Sender         # the Gmail address the messages come from (replies go back to it)
+        sync: false
+      - key: Sms__BulkSmsTokenId
+        sync: false
+      - key: Sms__BulkSmsTokenSecret
+        sync: false
+# NOT needed in production, keep them out of Render: Supabase__AccessToken, Supabase__DbPassword, Student__DevOtpCode.
+
+  # The student app, built for the web (see build-student-web.ps1) and published as a free static site.
+  # Students open it in their phone's browser and can "Add to home screen" to install it.
+  - type: web
+    name: itsresfix-app
+    runtime: static
+    staticPublishPath: ./student-web
+    routes:
+      - type: rewrite        # every address opens the app, so refreshing a page never 404s
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /flutter_service_worker.js   # always fetch the newest app after a rebuild
+        name: Cache-Control
+        value: no-cache
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(self), microphone=(), geolocation=()
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://itsdance.co.za https://www.gstatic.com https://fonts.gstatic.com https://fonts.googleapis.com https://res.cloudinary.com data: blob:; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
