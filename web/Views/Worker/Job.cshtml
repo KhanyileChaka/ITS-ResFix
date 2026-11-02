@@ -1,0 +1,162 @@
+@model WorkerComplaintViewModel
+@{
+    var row = Model.Row;
+    var c = row.Complaint;
+    var code = DisplayHelper.JobCode(c.ComplaintId);
+    ViewData["Title"] = $"Job #{code}";
+    ViewData["CustomHeader"] = true;
+
+    var isResolved = c.StatusId == StatusIds.Resolved;
+    var percent = TimerHelper.PercentRemaining(c.AssignedAt, c.Deadline);
+    var boxCss = isResolved ? "timer-box-done" : row.Timer.IsExpired ? "timer-box-expired" : "timer-box-active";
+    var timerState = isResolved ? "COMPLETED" : c.Deadline is null ? "PENDING" : row.Timer.IsExpired ? "EXPIRED" : "ACTIVE";
+}
+<div class="page-header">
+    <h1 class="page-title mb-0">Job #@code</h1>
+    <span class="rf-badge @DisplayHelper.PriorityCss(c.Priority)">Priority: @c.Priority</span>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="rf-card rf-card-padded mb-3">
+            <h2 class="card-heading"><i class="bi bi-clipboard me-2 text-rf-navy"></i>Job Information</h2>
+            <dl class="info-list">
+                <dt>Student</dt><dd>@row.StudentName</dd>
+                <dt>Contact</dt><dd>@(row.StudentCellphone ?? "-")</dd>
+                <dt>Room</dt><dd>@c.RoomNumber</dd>
+                <dt>Category</dt><dd>@row.CategoryName</dd>
+                <dt>Assigned</dt><dd>@c.AssignedAt.ToSaTime("dd MMM yyyy HH:mm")</dd>
+                <dt>Priority</dt><dd class="@(row.IsEmergency ? "text-danger" : "")">@c.Priority</dd>
+            </dl>
+        </div>
+
+        <div class="rf-card rf-card-padded mb-3">
+            <h2 class="card-heading">Description</h2>
+            <p class="description-text mb-0">@c.Description</p>
+        </div>
+
+        <div class="rf-card rf-card-padded mb-3">
+            <h3 class="photo-heading">Attached Photo</h3>
+            @if (DisplayHelper.IsHttpsUrl(c.PhotoUrl))
+            {
+                <a href="@c.PhotoUrl" target="_blank" rel="noopener">
+                    <img src="@c.PhotoUrl" alt="Photo of the reported problem" class="complaint-photo" />
+                </a>
+            }
+            else
+            {
+                <div class="photo-placeholder"><i class="bi bi-image"></i> No photo was attached.</div>
+            }
+        </div>
+
+        @{
+            var convo = new ConversationViewModel
+            {
+                ComplaintId = c.ComplaintId,
+                Controller = "Worker",
+                CanReply = true,
+                Messages = ViewBag.Messages as List<ITSResFix.Staff.Models.Db.ComplaintMessage> ?? new()
+            };
+        }
+        <partial name="_Conversation" model="convo" />
+
+        <div class="assign-note">
+            <i class="bi bi-stars"></i>
+            @if (c.AssignedType == AssignmentTypes.Manual)
+            {
+                <span>This job was assigned to you by the residence manager.</span>
+            }
+            else
+            {
+                <span>This job was automatically assigned to you based on your specialisation.</span>
+            }
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="rf-card rf-card-padded">
+            <h2 class="card-heading"><i class="bi bi-stopwatch me-2 text-rf-navy"></i>Timer Status</h2>
+            <dl class="info-list mb-3">
+                <dt>Assigned</dt><dd>@c.AssignedAt.ToSaTime("dd MMM HH:mm")</dd>
+                <dt>Deadline</dt><dd>@c.Deadline.ToSaTime("dd MMM HH:mm")</dd>
+            </dl>
+
+            <div class="timer-box @boxCss"
+                 data-countdown-box
+                 data-deadline="@(isResolved ? "" : c.Deadline.ToIsoUtc())"
+                 data-assigned="@c.AssignedAt.ToIsoUtc()">
+                @if (isResolved)
+                {
+                    <div class="timer-box-title"><i class="bi bi-check-circle-fill"></i> JOB COMPLETED</div>
+                    <div class="timer-box-meta">
+                        <span>Completed @c.ResolvedAt.ToSaTime("dd MMM HH:mm")</span>
+                        <span class="timer-box-state">Status: @timerState</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="timer-box-title"><i class="bi bi-stopwatch"></i> TIME REMAINING: <span data-remaining>@TimerHelper.RemainingText(c.Deadline)</span></div>
+                    <div class="progress timer-progress" role="progressbar" aria-label="Response window remaining"
+                         aria-valuenow="@percent" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar" style="width: @percent%" data-progress></div>
+                    </div>
+                    <div class="timer-box-meta">
+                        <span><span data-percent>@percent</span>% of response window remaining</span>
+                        <span class="timer-box-state">Status: <span data-state>@timerState</span></span>
+                    </div>
+                }
+            </div>
+
+            @if (!isResolved && c.StatusId != StatusIds.Rejected)
+            {
+                <div class="wd-visit mt-3">
+                    <div class="wd-visit-head"><i class="bi bi-calendar-event"></i> Planned visit</div>
+                    @if (c.ScheduledVisitAt is not null)
+                    {
+                        <div class="wd-visit-when">@c.ScheduledVisitAt.ToSaTime("dddd d MMMM, HH:mm")</div>
+                    }
+                    else
+                    {
+                        <div class="form-hint mb-2">Tell the student when you will come. They get a message with the time.</div>
+                    }
+                    <form asp-action="ScheduleVisit" asp-route-id="@c.ComplaintId" method="post" class="wd-visit-form">
+                        <input type="datetime-local" name="visitAt" class="form-control" required
+                               min="@DateTime.UtcNow.AddHours(2).ToString("yyyy-MM-dd'T'HH:mm")" />
+                        <button type="submit" class="btn btn-rf-navy">@(c.ScheduledVisitAt is null ? "Plan visit" : "Change time")</button>
+                    </form>
+                </div>
+            }
+
+            <form asp-action="UpdateStatus" asp-route-id="@c.ComplaintId" method="post" class="mt-3">
+                <div class="mb-3">
+                    <label for="statusId" class="form-label">Update Status</label>
+                    <select id="statusId" name="statusId" class="form-select form-select-soft">
+                        <option value="@StatusIds.Submitted" selected="@(Model.StatusId == StatusIds.Submitted)">New</option>
+                        <option value="@StatusIds.InProgress" selected="@(Model.StatusId == StatusIds.InProgress)">In Progress</option>
+                        <option value="@StatusIds.Resolved" selected="@(Model.StatusId == StatusIds.Resolved)">Resolved</option>
+                    </select>
+                    <div class="form-hint mt-1">Options: New · In Progress · Resolved</div>
+                </div>
+                <div class="mb-3">
+                    <label for="notes" class="form-label">Notes</label>
+                    <textarea id="notes" name="notes" rows="4" maxlength="2000" class="form-control"
+                              placeholder="Add notes about the work done...">@Model.Notes</textarea>
+                </div>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <button type="submit" class="btn btn-rf-primary w-100">Update Status</button>
+                    </div>
+                    <div class="col-6">
+                        <button type="submit" name="complete" value="true" class="btn btn-rf-navy w-100" disabled="@isResolved">
+                            Mark as Complete
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <a asp-action="Jobs" class="btn btn-rf-outline-navy w-100 mt-2">
+                <i class="bi bi-arrow-left me-1"></i> Back to List
+            </a>
+        </div>
+    </div>
+</div>
